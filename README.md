@@ -22,6 +22,11 @@ countries and active providers are shown in the journey panel and a coverage
 badge. See `docs/05_CONFIGURATION.md` for the exact key/environment requirements —
 **no API key is required**.
 
+**Public links:** live app <https://routeguard-six.vercel.app> · source
+<https://github.com/darderrdur17/routeguard>. The live canonical origin, Open Graph
+URLs, `robots.txt` and `sitemap.xml` all resolve to the Vercel production alias
+above.
+
 ## Run locally
 
 From this directory:
@@ -34,6 +39,14 @@ Then open <http://127.0.0.1:8765/>. No build step, no frontend dependencies, no
 API keys. `GET /api/health` returns `{"status":"ok"}`; `GET /api/airports` returns
 the curated registry that backs the UI autocomplete; `POST /api/assess` accepts
 `{"origin":"New York","destination":"San Francisco","date":"YYYY-MM-DD"}`.
+
+### Vercel deployment
+
+The same source is deployed through `api/index.py` and `vercel.json`; Vercel uses
+Python 3.12 and installs `requirements.txt`. No paid plan or paid API is involved.
+The deployment sets `ROUTEGUARD_SITE_URL` so canonical/OG URLs stay pinned to the
+production alias even when a preview deployment is visited. `robots.txt` and
+`sitemap.xml` are generated from that origin and publish only the product page.
 
 ### Interface
 
@@ -75,6 +88,9 @@ No test makes a live network call. `tests/fixtures/` contains sanitised copies o
 the recorded provider payload shapes documented in `docs/02_api_verification_notes.md`.
 `tests/test_risk.py` implements every scenario (S01–S12) in `docs/01_architecture.md`
 section 10 plus determinism, no-score and evidence-linkage assertions.
+`tests/test_seo.py` verifies the exact browser title, meta description, canonical/OG
+URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap and
+1200×630 Open Graph image. Current result: **84 passed**.
 
 ## Dependencies
 
@@ -103,9 +119,10 @@ and at most two retries on 429/5xx. 204 is success-with-no-data.
 | NOAA Aviation Weather Center (AWC) | `https://aviationweather.gov/api/data/metar?ids={icao,...}&format=json&hours=2` and `https://aviationweather.gov/api/data/taf?ids={icao,...}&format=json` | Decoded METAR observations and TAF forecast groups; international station network |
 | Open-Meteo (non-US routes only) | `https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability&forecast_days=3&timezone=UTC` | Current WMO condition and peak in-window precipitation probability; no API key |
 
-**Configuration:** no API keys are required. The only optional environment variable is
-`ROUTEGUARD_CONTACT_EMAIL`, which sets the identifying `User-Agent` contact. Full
-details are in `docs/05_CONFIGURATION.md`.
+**Configuration:** no API keys are required. Two optional environment variables exist:
+`ROUTEGUARD_CONTACT_EMAIL` sets the identifying `User-Agent` contact, and
+`ROUTEGUARD_SITE_URL` pins the canonical public origin for SEO (set to the live
+Vercel alias in this deployment). Full details are in `docs/05_CONFIGURATION.md`.
 
 NWS G-AIRMET, CWA and SIGMET were verified during design but are not integrated in
 the MVP. HTML is never parsed; no paid service is used.
@@ -207,7 +224,8 @@ no AI-derived classification.
 
 ## Delivery manifest
 
-Application: `app/{__init__,main,config,models,airports.json,cities,http_client,logging,normalize,risk,service}.py`, `app/providers/{__init__,base,nws,awc}.py`.
-Frontend: `static/{index.html,styles.css,app.js}`.
-Tests: `tests/{__init__,conftest,test_cities,test_normalize,test_adapters,test_risk,test_api,test_open_meteo}.py` and `tests/fixtures/*.json`.
+Application: `app/{__init__,main,config,models,airports.json,cities,http_client,logging,normalize,risk,service}.py`, `app/providers/{__init__,base,nws,awc,open_meteo}.py`.
+Deployment: `api/index.py`, `vercel.json`, `.vercelignore`, `.gitignore`.
+Frontend: `static/{index.html,styles.css,app.js,favicon.svg,apple-touch-icon.png,og-image.png}`.
+Tests: `tests/{__init__,conftest,test_cities,test_normalize,test_adapters,test_risk,test_api,test_open_meteo,test_seo}.py` and `tests/fixtures/*.json`.
 Dependencies/docs: `requirements.txt`, this README, and `docs/00_PRD.md` … `docs/05_CONFIGURATION.md` (including QA reports).

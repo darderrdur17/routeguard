@@ -69,4 +69,20 @@ A real screenshot exposed one usability defect not caught by the first browser p
 | World-aware map and purposeful motion | Pass | Bounds recomputed per route; animated connector present; global caption states it is schematic and not a flight path; reduced-motion mobile run rendered 11 panels with no horizontal overflow. |
 | Configuration documented exactly | Pass | `docs/05_CONFIGURATION.md`: no API keys; only optional variable `ROUTEGUARD_CONTACT_EMAIL`. |
 
-Final state: **79 pytest tests pass**; ZIP re-extracted and re-ran all 79 tests; app imports with the 75-airport registry. Screenshots: `/tmp/routeguard_global_desktop.png`, `/tmp/routeguard_global_mobile.png`.
+Final state after the global-coverage pass: **79 pytest tests pass**; ZIP re-extracted and re-ran all 79 tests; app imports with the 75-airport registry. Screenshots: `/tmp/routeguard_global_desktop.png`, `/tmp/routeguard_global_mobile.png`.
+
+---
+
+## Addendum — SEO, GitHub and Vercel publication (same date)
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| Exact browser identity | Pass | Served HTML contains `<title>RouteGuard | US Travel Disruption Intelligence</title>` and the approved meta description verbatim. |
+| Canonical/social URL pinning | Pass | `{{SITE_URL}}` is resolved server-side; `ROUTEGUARD_SITE_URL` is set to `https://routeguard-six.vercel.app`; canonical and OG/Twitter URLs use the production alias even on a preview deployment. |
+| Social assets | Pass | `static/og-image.png` verified as a real 1200×630 PNG; `favicon.svg` and 180×180 `apple-touch-icon.png` return 200 with correct content types. |
+| Crawler controls | Pass | `/robots.txt` allows `/`, disallows `/api/`, `/docs`, `/redoc` and `/openapi.json`, and points to `/sitemap.xml`; the sitemap contains exactly one public URL. |
+| Public GitHub repository | Pass | `https://github.com/darderrdur17/routeguard` verified `PUBLIC`; homepage set to the live Vercel URL. |
+| Vercel production deployment | Pass | Project `routeguard` created; alias `https://routeguard-six.vercel.app` returns 200 for `/`, `/api/health`, `/robots.txt`, `/sitemap.xml` and the static assets. Live `Salt Lake City (SLC)` → JFK returned 200 with `NWS OK` + `AWC OK`, `LOW` / `MEDIUM`, 7 evidence items. |
+| No metadata regressions | Pass | `python3 -m pytest -q` → **84 passed**, including 5 new SEO tests; no application/risk behaviour changed. |
+
+The Vercel project name `routeguard` was accepted; the short alias `routeguard-six.vercel.app` was the actual URL assigned by Vercel and was therefore used for canonical metadata rather than an assumed `routeguard.vercel.app`.

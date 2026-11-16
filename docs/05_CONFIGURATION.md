@@ -19,15 +19,17 @@ FAA operational status is **not** integrated. Do not look for an FAA key: no sup
 | Variable | Required | Default | Effect |
 |---|---|---|---|
 | `ROUTEGUARD_CONTACT_EMAIL` | Optional — **recommended** | `derren@example.com` | Sets the contact address embedded in the `User-Agent` header on 100% of outbound provider calls. Both NWS and AWC ask for identification. Set it to a real address before demonstrating repeatedly. |
+| `ROUTEGUARD_SITE_URL` | Optional on Vercel — **set for production** | Empty; derived from the incoming request | Pins the canonical origin used by `<link rel="canonical">`, Open Graph/Twitter URLs, `robots.txt` and `sitemap.xml`. The Vercel project sets it to `https://routeguard-six.vercel.app`. |
 
 Example:
 
 ```bash
 export ROUTEGUARD_CONTACT_EMAIL="you@example.com"
+export ROUTEGUARD_SITE_URL="https://routeguard-six.vercel.app"
 python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8765
 ```
 
-No other environment variable is read by the application. Host and port are uvicorn command-line options, not application settings. All timeouts, retry counts, provider URLs, freshness thresholds and authoritative fallback links are constants in `app/config.py`.
+No other environment variable is read by the application. Host and port are uvicorn command-line options, not application settings. All timeouts, retry counts, provider URLs, freshness thresholds and authoritative fallback links are constants in `app/config.py`. On Vercel, `ROUTEGUARD_SITE_URL` is configured as a production environment variable and does not need to be supplied by a visitor.
 
 ## 3. What is deliberately not configurable yet
 
