@@ -80,13 +80,17 @@ the visual centrepiece, not a decorative thumbnail.
 - **Motion:** staggered entrance, card hover/selection, map focus transitions,
   marker emphasis, filter/timeline transitions, drawer/panel motion and honest
   skeleton states are implemented. Refresh preserves the previous assessment and
-  shows an indeterminate line — never a fabricated progress percentage.
+  shows an indeterminate line — never a fabricated progress percentage. Marker
+  emphasis transforms are applied to the marker's inner element only; MapLibre
+  retains sole ownership of the marker element's geographic `transform`, so
+  hover/selection styling can never displace an airport marker.
 - **Keyboard and accessibility:** `⌘ K` / `Ctrl K` opens the command palette, all
-  controls are keyboard reachable, focus is visible, loading is announced, and
-  `prefers-reduced-motion` disables non-essential motion. Layouts were checked at
-  1440px, 820px and 390px with no overflow.
-- A failed submission still clears prior results and shows the empty state; stale
-  assessments are never left beside a fresh error.
+  controls are keyboard reachable, focus is visible, loading is announced, dialogs
+  trap and restore focus, and `prefers-reduced-motion` disables non-essential
+  motion. Layouts were checked at 1440px, 820px and 390px with no overflow.
+- A failed submission keeps the last good assessment visible, never mixes stale
+  results with a fresh error, and first-run loading feedback is shown before any
+  results exist.
 
 ## Test
 
@@ -104,7 +108,18 @@ URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap
 1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
 real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
 enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
-Current result: **90 passed**.
+Current result: **106 passed**.
+
+### Robustness hardening (post-audit)
+
+A full audit pass fixed and regression-tested: uniform `NOT_FOUND` /
+`METHOD_NOT_ALLOWED` error envelopes; route-before-date validation precedence
+(both invalid → `INVALID_ROUTE`); same-origin/destination rejection; a
+`9999-12-31` max-date overflow 500; partial-provider failures no longer 500 (C03
+links to surviving-provider evidence or is skipped); Open-Meteo hourly
+precipitation evidence now carries freshness and participates in classification;
+`/static/index.html` redirects to `/` so no crawlable duplicate page with
+unresolved template placeholders exists.
 
 ## Dependencies
 

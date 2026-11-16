@@ -117,6 +117,74 @@ def test_malformed_date_is_rejected_with_invalid_date_envelope(
     assert calls == []
 
 
+def _assert_structured_error(body: Any, code: str) -> None:
+    """Assert the base error envelope for non-validation HTTP errors."""
+    assert isinstance(body, dict)
+    assert set(body) == {"code", "message", "request_id", "details"}
+    assert body["code"] == code
+    assert isinstance(body["message"], str) and body["message"]
+    assert isinstance(body["request_id"], str) and body["request_id"]
+
+
+def test_unknown_routes_and_methods_use_the_uniform_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """404 and 405 remain structured errors, not bare FastAPI detail bodies."""
+    client, _calls = _client(monkeypatch)
+    response = client.get("/definitely-not-a-route")
+    assert response.status_code == 404
+    _assert_structured_error(response.json(), "NOT_FOUND")
+    response = client.get("/api/assess")
+    assert response.status_code == 405
+    _assert_structured_error(response.json(), "METHOD_NOT_ALLOWED")
+
+
+def test_invalid_route_takes_precedence_over_invalid_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If both fields are bad, the error points at the airport input first."""
+    client, _calls = _client(monkeypatch)
+    response = client.post(
+        "/api/assess",
+        json={"origin": "", "destination": "San Francisco", "date": "2000-01-01"},
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "INVALID_ROUTE"
+    assert {item["field"] for item in body["details"]["errors"]} == {"body.origin", "body.date"}
+
+
+def test_same_origin_and_destination_is_rejected() -> None:
+    """An airport pair must contain two distinct curated airports."""
+    from app.service import AssessmentService, RouteInputError
+
+    service = AssessmentService()
+    from app.models import AssessRequest
+
+    request = AssessRequest(
+        origin="New York", destination="New York", date=_local_today()
+    )
+    with pytest.raises(RouteInputError) as raised:
+        import asyncio
+
+        asyncio.run(service.assess(request, "same-airport-test"))
+    assert raised.value.code == "INVALID_ROUTE"
+
+
+def test_maximum_supported_date_does_not_overflow() -> None:
+    """The travel window builder handles Python's maximum calendar date."""
+    from datetime import date as date_type
+
+    from app.cities import CityRegistry
+    from app.service import AssessmentService
+
+    airport = CityRegistry().resolve("JFK")
+    window = AssessmentService._travel_window(airport, date_type.max)
+    assert window["start"].year == date_type.max.year
+    assert window["end"].year == date_type.max.year
+    assert window["end"] > window["start"]
+
+
 def test_date_validation_uses_origin_timezone() -> None:
     """The validator resolves the origin airport's zone before checking today."""
     from app.models import AssessRequest, _origin_local_today

@@ -104,3 +104,31 @@ The Vercel project name `routeguard` was accepted; the short alias `routeguard-s
 | No regressions | Pass | `python3 -m pytest -q` → **90 passed** (84 prior + 6 frontend contract tests); no page errors and no console errors in the browser pass. |
 
 Screenshots: `/tmp/routeguard_v29_desktop.png`, `/tmp/routeguard_v29_tablet.png`, `/tmp/routeguard_v29_mobile.png`. The backend, risk rules, provider adapters, SEO metadata and canonical URL were intentionally unchanged.
+
+---
+
+## Addendum — full audit fix pass (same date)
+
+A project-wide audit found 13 issues (3 High, 6 Medium, 4 Low). All were fixed and each fix carries a regression test. Executed verification:
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| Airport markers stop stacking | Pass | Root cause: CSS `animation`/`transform` on `.rg-marker` overwrote MapLibre's geographic marker `transform`. Transforms moved to `.rg-marker > span`. Browser check: JFK `translate(190px,125px)`, SFO `translate(60px,135px)` — distinct; live route JFK→SFO places JFK near the US Northeast and SFO near the West Coast. Screenshot `/tmp/routeguard_marker_stage_jfk_sfo.png`. |
+| Airport-location tracking end to end | Pass | Origin context reports New York / JFK / United States / America/New_York; destination reports San Francisco / SFO / United States / America/Los_Angeles. Switching to London→Singapore updates both country labels and marker transforms. API coordinates: JFK `40.6413,-73.7781`, SFO `37.6213,-122.3790`. |
+| Partial-provider failure no longer 500 | Pass | C03 `MEDIUM_PARTIAL` now links recommendations to surviving-provider evidence and is skipped when none survives. Regression tests: no-surviving-evidence → no recommendation; surviving AWC evidence → cited; full degraded response still a valid `Assessment`. |
+| Max-date overflow 500 fixed | Pass | `9999-12-31` returns a valid `INDETERMINATE` response instead of `OverflowError` → 500. |
+| Uniform error envelopes | Pass | 404 → `NOT_FOUND`, 405 → `METHOD_NOT_ALLOWED`, both via the same `{code,message,request_id,details}` envelope as 422. |
+| Validation precedence | Pass | Invalid route + invalid date together → `INVALID_ROUTE` (route wins). |
+| Same airport rejected | Pass | `{"origin":"New York","destination":"New York"}` → 422 `INVALID_ROUTE`. |
+| Open-Meteo hourly evidence is live | Pass | Hourly precipitation probability keeps `observed_at=null` (never an observation) but gains forecast-validity freshness (`FRESH`) and participates in classification. |
+| Loading feedback before first result | Pass | Skeleton + announcement render outside the hidden `#results` section. |
+| View pills no longer blank panels | Pass | Signal cards, map markers and priority findings read from the full assessment evidence, not the filtered view. |
+| Failed refresh keeps last good data | Pass | Last assessment preserved; `lastPayload` set only on success. |
+| Dialog focus containment | Pass | Command palette and evidence drawer trap Tab focus and restore it to the opener on close. |
+| Keyboard-accessible glossary | Pass | Glossary terms are real `<button>`s with descriptive `aria-label`s; incorrect `role="listitem"` removed from buttons. |
+| `safeUrl()` hardening | Pass | Rejects `undefined`/`null`/empty/literal placeholder strings before URL parsing. |
+| No crawlable duplicate page | Pass | `/static/index.html` → 307 `/` via `CanonicalStaticFiles`, eliminating an indexed duplicate with unresolved `{{SITE_URL}}`. |
+| Duplicate fullscreen control removed | Pass | MapLibre's `FullscreenControl` dropped; custom control retained. |
+| Stale airport focus cleared | Pass | Switching view pills clears `activeAirport` and rerenders airport blocks. |
+
+Final state: `python3 -m pytest -q` → **106 passed** (90 prior + 16 new regression tests across `test_api.py`, `test_risk.py`, `test_open_meteo.py`, `test_frontend.py`). No rule semantics, no-score architecture or provider contract changed.

@@ -14,9 +14,12 @@ from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
     PlainTextResponse,
+    RedirectResponse,
     Response,
 )
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import Scope
 
 from app.cities import CityRegistry
 from app.config import settings
@@ -27,13 +30,22 @@ from app.service import AssessmentService, RouteInputError
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 SITE_URL_PLACEHOLDER = "{{SITE_URL}}"
 
+class CanonicalStaticFiles(StaticFiles):
+    """Serve assets without exposing the raw HTML template as a duplicate page."""
+
+    async def get_response(self, path: str, scope: Scope):
+        if path in {"index.html", "./index.html"}:
+            return RedirectResponse(url="/", status_code=307)
+        return await super().get_response(path, scope)
+
+
 app = FastAPI(
     title="RouteGuard Prototype",
     description="Deterministic, evidence-driven US airport-level travel assessment.",
     version="0.1.0",
 )
 app.add_middleware(CorrelationIdMiddleware)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/static", CanonicalStaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _service = AssessmentService()
 
@@ -62,6 +74,29 @@ def _error_response(
     )
 
 
+@app.exception_handler(StarletteHTTPException)
+async def http_error_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    """Return the uniform envelope for framework errors such as 404 and 405."""
+    code = {
+        404: "NOT_FOUND",
+        405: "METHOD_NOT_ALLOWED",
+    }.get(exc.status_code, "HTTP_ERROR")
+    emit(
+        "request_rejected",
+        request_id=_request_id(request),
+        code=code,
+        http_status=exc.status_code,
+    )
+    return _error_response(
+        code=code,
+        message=str(exc.detail) if exc.detail else "The requested resource is unavailable.",
+        request_id=_request_id(request),
+        status_code=exc.status_code,
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(
     request: Request, exc: RequestValidationError
@@ -69,13 +104,15 @@ async def validation_error_handler(
     """Map Pydantic validation failures to R00 error codes."""
     errors = exc.errors()
     locations = [tuple(str(part) for part in item.get("loc", ())) for item in errors]
-    if any("date" in location for location in locations):
-        code = "INVALID_DATE"
-    elif any(
+    # Route shape is the first actionable problem: it tells the caller which
+    # curated airport/city to replace before re-checking the travel date.
+    if any(
         any(part in {"origin", "destination"} for part in location)
         for location in locations
     ):
         code = "INVALID_ROUTE"
+    elif any("date" in location for location in locations):
+        code = "INVALID_DATE"
     else:
         code = "INVALID_REQUEST"
     details = {

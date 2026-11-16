@@ -322,9 +322,15 @@ def classify(
 
     if any(rule_id == "C03_MEDIUM_PARTIAL" for rule_id in confidence_ids):
         for provider in non_ok_providers:
+            # Link to any surviving-provider evidence, not only trustworthy items.
+            # If a degraded provider was itself the only source, there is no
+            # trustworthy counterweight; an unlinkable recommendation must not be
+            # emitted because Assessment requires explainable evidence linkage.
             surviving_ids = [
-                item.id for item in trustworthy if item.provider != provider.provider
+                item.id for item in evidence if item.provider != provider.provider
             ]
+            if not surviving_ids:
+                continue
             recommendations.append(
                 Recommendation(
                     priority="HIGH",

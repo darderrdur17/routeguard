@@ -76,3 +76,68 @@ def test_accessibility_and_motion_rules_are_preserved() -> None:
     assert "[hidden] { display: none !important; }" in STYLES
     assert "@media (prefers-reduced-motion: reduce)" in STYLES
     assert "focusAirport" in APP and "keydown" in APP
+
+
+def test_first_assessment_loading_feedback_is_visible_outside_results() -> None:
+    """Skeleton/status are not buried inside the initially hidden results section."""
+    skeleton_position = INDEX.find('id="loading-skeleton"')
+    announcement_position = INDEX.find('id="loading-announcement"')
+    results_position = INDEX.find('id="results"')
+    assert 0 < skeleton_position < results_position
+    assert 0 < announcement_position < results_position
+    assert "show(dom.loadingAnnouncement, busy)" in APP
+    assert "show(dom.loadingSkeleton, busy && !state.current)" in APP
+
+
+def test_marker_transforms_do_not_override_geographic_placement() -> None:
+    """MapLibre owns the marker element transform; visual transforms stay inside."""
+    marker_block = STYLES[STYLES.find(".rg-marker {"):STYLES.find(".rg-marker > span")]
+    assert "transform:" not in marker_block
+    assert "animation:" not in marker_block
+    assert ".rg-marker > span" in STYLES
+    assert "animation: markerIn" in STYLES
+
+
+def test_dialogs_manage_focus() -> None:
+    """Drawer and palette trap focus and restore it when closed."""
+    assert "trapDialogFocus" in APP
+    assert "releaseDialogFocus" in APP
+    assert "trapDialogFocus(dom.drawer)" in APP
+    assert "releaseDialogFocus()" in APP
+    assert "trapDialogFocus(dom.palette)" in APP
+
+
+def test_buttons_do_not_override_button_semantics() -> None:
+    """Evidence and timeline buttons keep native button roles."""
+    assert 'button.setAttribute("role", "listitem")' not in APP
+
+
+def test_glossary_terms_are_keyboard_accessible() -> None:
+    """Glossary entries are real buttons with full accessible names."""
+    assert 'class="glossary-term"' in INDEX
+    assert "<title>" not in INDEX.split('id="glossary"')[1].split("</div>")[0]
+    assert "aria-label=" in INDEX.split('id="glossary"')[1]
+
+
+def test_safe_url_rejects_empty_or_placeholder_sources() -> None:
+    """The defensive URL helper falls back instead of making local junk URLs."""
+    assert "/^(undefined|null)$/i.test(text)" in APP
+    assert "if (value === undefined || value === null) return fallback;" in APP
+
+
+def test_maplibre_does_not_add_a_second_fullscreen_control() -> None:
+    """Fullscreen is handled once by the shared custom control."""
+    assert "new ml.FullscreenControl" not in APP
+    assert "toggleFullscreen" in APP
+
+
+def test_raw_index_template_is_not_served_as_a_duplicate_page() -> None:
+    """The static handler redirects the template to the templated canonical page."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app, follow_redirects=False)
+    response = client.get("/static/index.html")
+    assert response.status_code == 307
+    assert response.headers["location"] == "/"

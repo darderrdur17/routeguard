@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.cities import CityRegistry
-from app.models import Evidence
+from app.models import Evidence, ProviderStatus
 from app.normalize import (
     Normalizer,
     open_meteo_current_severity,
@@ -82,6 +82,36 @@ def test_open_meteo_forecast_keeps_observed_time_absent() -> None:
     assert item.observed_at is None
     assert item.valid_from is not None
     assert item.valid_to is not None
+    assert item.freshness == "FRESH"
+
+
+def test_open_meteo_hourly_precipitation_reaches_the_decision_table() -> None:
+    """A non-unknown hourly forecast participates in classification."""
+    from app.risk import classify
+
+    payload = envelope(
+        "OPEN_METEO_HOURLY",
+        {"time": "2026-11-16T09:00Z", "precipitation_probability": 90},
+    )
+    result = Normalizer(now=NOW, locations={"origin": ("Singapore (SIN)", 1.3644, 103.9915)}).normalize(
+        [payload], WINDOW
+    )
+    statuses = [
+        ProviderStatus(
+            provider="OPEN_METEO",
+            status="OK",
+            authoritative_url="https://open-meteo.com/en/docs",
+        ),
+        ProviderStatus(
+            provider="AWC",
+            status="OK",
+            authoritative_url="https://aviationweather.gov/data/api/",
+        ),
+    ]
+    risk = classify(result.evidence, statuses, NOW.date(), NOW, WINDOW)
+    assert result.evidence[0].freshness == "FRESH"
+    assert risk.classification == "LOW"
+    assert "R06_LOW" in risk.rule_ids
 
 
 def test_weather_provider_selected_by_country() -> None:

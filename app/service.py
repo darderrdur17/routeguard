@@ -8,7 +8,7 @@ to a 422 envelope in main.py.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -73,12 +73,23 @@ class AssessmentService:
                 f"Unknown timezone configured for {airport.iata}.",
             ) from exc
         start_local = datetime.combine(travel_date, time.min, tzinfo=zone)
-        end_local = datetime.combine(
-            travel_date + timedelta(days=1), time.min, tzinfo=zone
-        )
+        # date.max + timedelta(days=1) overflows. For the final supported Python
+        # date, close the window at the last instant of that day instead.
+        if travel_date == date.max:
+            end_local = datetime.combine(travel_date, time.max, tzinfo=zone)
+        else:
+            end_local = datetime.combine(
+                travel_date + timedelta(days=1), time.min, tzinfo=zone
+            )
+        try:
+            end_utc = end_local.astimezone(timezone.utc)
+        except OverflowError:
+            # Python cannot represent every local timezone's final UTC instant.
+            # Use the latest representable UTC instant instead of failing the run.
+            end_utc = datetime.max.replace(tzinfo=timezone.utc)
         return {
             "start": start_local.astimezone(timezone.utc),
-            "end": end_local.astimezone(timezone.utc),
+            "end": end_utc,
         }
 
     @staticmethod
@@ -117,6 +128,17 @@ class AssessmentService:
                 str(exc),
                 {"query": exc.query, "hint": "Use a curated city name or IATA code."},
             ) from exc
+        if {origin.iata, origin.icao} == {destination.iata, destination.icao}:
+            raise RouteInputError(
+                "INVALID_ROUTE",
+                "Origin and destination resolve to the same airport.",
+                {
+                    "origin": origin.city,
+                    "destination": destination.city,
+                    "iata": origin.iata,
+                    "hint": "Use two distinct curated airports.",
+                },
+            )
 
         generated_at = utc_now()
         window = self._travel_window(origin, request.date)

@@ -173,6 +173,61 @@ def test_all_twelve_scenarios(
     assert len(result.recommendations) >= 1
 
 
+def test_partial_failure_without_surviving_evidence_does_not_500() -> None:
+    """A degraded provider cannot yield an evidence-free partial-failure action."""
+    statuses = [
+        make_status("NWS", "DEGRADED", error="Malformed payload"),
+        make_status("AWC"),
+    ]
+    result = classify([ev(0, "NWS", "MINOR")], statuses, TRAVEL_DATE, NOW, WINDOW)
+    partial_recs = [
+        item for item in result.recommendations if item.rule_id == "C03_MEDIUM_PARTIAL"
+    ]
+    assert partial_recs == []
+
+
+def test_partial_failure_links_to_surviving_provider_evidence() -> None:
+    """When a surviving provider emits evidence, the partial-failure action cites it."""
+    statuses = [
+        make_status("NWS", "DEGRADED", error="Malformed payload"),
+        make_status("AWC"),
+    ]
+    evidence = [ev(0, "NWS", "MINOR"), ev(1, "AWC", "MINOR")]
+    result = classify(evidence, statuses, TRAVEL_DATE, NOW, WINDOW)
+    partial_recs = [
+        item for item in result.recommendations if item.rule_id == "C03_MEDIUM_PARTIAL"
+    ]
+    assert partial_recs
+    assert all(item.evidence_ids == ["evidence-01-abcd"] for item in partial_recs)
+
+
+def test_partial_failure_recommendations_pass_assessment_invariants() -> None:
+    """The complete degraded response remains a valid Assessment model."""
+    statuses = [
+        make_status("NWS", "DEGRADED", error="Malformed payload"),
+        make_status("AWC"),
+    ]
+    evidence = [ev(0, "NWS", "MINOR"), ev(1, "AWC", "MINOR")]
+    result = classify(evidence, statuses, TRAVEL_DATE, NOW, WINDOW)
+    assessment = Assessment(
+        request_id="degraded-test",
+        generated_at=NOW,
+        route={"origin_iata": "JFK", "destination_iata": "SFO"},
+        travel_date=TRAVEL_DATE,
+        travel_window_utc=WINDOW,
+        classification=result.classification,
+        confidence=result.confidence,
+        degraded=True,
+        assumptions=[],
+        triggered_rules=result.triggered_rules,
+        evidence=evidence,
+        recommendations=result.recommendations,
+        provider_status=statuses,
+        coverage_note="test coverage",
+    )
+    assert assessment.degraded is True
+
+
 def test_determinism_byte_identical_summary() -> None:
     """The same evidence produces identical class/confidence/rule IDs."""
     scenario = SCENARIOS[0]

@@ -170,8 +170,11 @@
   }
 
   function safeUrl(value, fallback) {
+    if (value === undefined || value === null) return fallback;
+    var text = String(value).trim();
+    if (!text || /^(undefined|null)$/i.test(text)) return fallback;
     try {
-      var parsed = new URL(String(value), window.location.href);
+      var parsed = new URL(text, window.location.href);
       if (parsed.protocol === "https:" || parsed.protocol === "http:") return parsed.href;
     } catch (error) {
       return fallback;
@@ -262,6 +265,10 @@
     all: "No evidence was returned for this route.",
   };
 
+  function allEvidence() {
+    return state.current ? state.current.evidence || [] : [];
+  }
+
   function baseEvidence() {
     if (!state.current) return [];
     var all = state.current.evidence || [];
@@ -294,6 +301,8 @@
     state.view = view;
     state.highlighted = null;
     state.selectedEvidenceId = null;
+    state.activeAirport = null;
+    renderAirportBlocks();
     renderViewPills();
     if (!state.current) return;
     renderEvidence(state.current);
@@ -385,7 +394,7 @@
   }
 
   function renderSignalCards(data) {
-    var items = baseEvidence();
+    var items = allEvidence();
     var weather = items.filter(isWeather);
     var aviation = items.filter(isAviation);
     clear(dom.weatherSummary);
@@ -516,7 +525,7 @@
   }
 
   function mapEvidence() {
-    return baseEvidence().filter(function (item) {
+    return allEvidence().filter(function (item) {
       if (!hasCoords(item)) return false;
       if (isWeather(item)) return dom.layerWeather.checked;
       if (isAviation(item)) return dom.layerAviation.checked;
@@ -579,7 +588,6 @@
         cooperativeGestures: false,
       });
       state.map.addControl(new ml.NavigationControl({ showCompass: false }), "bottom-right");
-      state.map.addControl(new ml.FullscreenControl({ container: dom.mapStage }), "top-right");
       state.map.on("load", function () {
         state.mapReady = true;
         document.body.classList.add("maplibre-ready");
@@ -966,7 +974,7 @@
     }
 
     clear(dom.priorityFindings);
-    var priority = baseEvidence().slice().sort(function (a, b) {
+    var priority = allEvidence().slice().sort(function (a, b) {
       return (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0);
     }).slice(0, 3);
     if (!priority.length) {
@@ -1039,7 +1047,6 @@
       var isForecast = item.signal_type.indexOf("TAF") >= 0 || item.signal_type.indexOf("FORECAST") >= 0;
       var button = el("button", "timeline-item");
       button.type = "button";
-      button.setAttribute("role", "listitem");
       button.dataset.evidenceId = item.id;
       button.style.animationDelay = Math.min(index * 35, 280) + "ms";
       button.appendChild(el("div", "timeline-kind " + (isForecast ? "forecast" : "observed"),
@@ -1111,7 +1118,6 @@
     items.forEach(function (item, index) {
       var card = el("button", "evidence-card" + (state.highlighted === item.id ? " is-selected" : ""));
       card.type = "button";
-      card.setAttribute("role", "listitem");
       card.dataset.evidenceId = item.id;
       card.style.animationDelay = Math.min(index * 25, 250) + "ms";
       var top = el("div", "evidence-top");
@@ -1140,6 +1146,45 @@
     });
     var card = dom.evidenceList.querySelector('[data-evidence-id="' + id + '"]');
     if (card) card.scrollIntoView({ block: "nearest" });
+  }
+
+  /* ---------- dialog focus management ---------- */
+
+  var dialogFocus = { element: null, previous: null, handler: null };
+
+  function focusableIn(dialog) {
+    return Array.prototype.filter.call(
+      dialog.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"),
+      function (node) { return node.offsetParent !== null; }
+    );
+  }
+
+  function trapDialogFocus(dialog) {
+    var handler = function (event) {
+      if (event.key !== "Tab" || dialog.hidden) return;
+      var focusable = focusableIn(dialog);
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      var active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", handler);
+    dialogFocus = { element: dialog, previous: document.activeElement, handler: handler };
+  }
+
+  function releaseDialogFocus() {
+    if (!dialogFocus.element) return;
+    dialogFocus.element.removeEventListener("keydown", dialogFocus.handler);
+    var previous = dialogFocus.previous;
+    dialogFocus = { element: null, previous: null, handler: null };
+    if (previous && typeof previous.focus === "function") previous.focus();
   }
 
   /* ---------- evidence drawer ---------- */
@@ -1176,6 +1221,7 @@
     state.drawerEvidenceId = id;
     show(dom.drawerOverlay, true);
     show(dom.drawer, true);
+    trapDialogFocus(dom.drawer);
     dom.drawerClose.focus();
   }
 
@@ -1183,6 +1229,7 @@
     show(dom.drawer, false);
     show(dom.drawerOverlay, false);
     state.drawerEvidenceId = null;
+    releaseDialogFocus();
   }
 
   /* ---------- master render and request flow ---------- */
@@ -1216,7 +1263,7 @@
     dom.submit.disabled = busy;
     dom.refresh.disabled = busy || !state.current;
     dom.submit.querySelector("span").textContent = busy ? "Assessing…" : "Assess route";
-    show(dom.loadingPill, busy);
+    show(dom.loadingPill, busy && !!state.current);
     show(dom.loadingAnnouncement, busy);
     show(dom.loadingSkeleton, busy && !state.current);
     dom.results.classList.toggle("is-refreshing", busy && !!state.current);
@@ -1225,7 +1272,6 @@
 
   function submit(payload, isRefresh) {
     if (state.busy) return;
-    state.lastPayload = payload;
     show(dom.error, false);
     setBusy(true);
     fetch("/api/assess", {
@@ -1240,19 +1286,27 @@
         });
       })
       .then(function (data) {
+        state.lastPayload = payload;
         render(data);
         if (isRefresh) toast("Sources refreshed · " + (data.evidence || []).length + " evidence item(s) · " + data.classification);
       })
       .catch(function (envelope) {
-        show(dom.results, false);
-        show(dom.empty, true);
-        dom.emptyTitle.textContent = "Assessment could not be completed";
-        dom.emptySubtitle.textContent = "Check the highlighted input above, then try again.";
         show(dom.error, true);
         dom.error.textContent = (envelope && envelope.code ? envelope.code + ": " : "REQUEST_FAILED: ") +
           (envelope && envelope.message ? envelope.message : "The assessment could not be completed.");
         if (envelope && envelope.details && envelope.details.errors) {
           dom.error.textContent += " " + envelope.details.errors.map(function (e) { return e.field; }).join(", ");
+        }
+        // Keep the last good assessment visible when one exists. Only a first
+        // assessment should fall back to the empty state.
+        if (state.current) {
+          show(dom.results, true);
+          show(dom.empty, false);
+        } else {
+          show(dom.results, false);
+          show(dom.empty, true);
+          dom.emptyTitle.textContent = "Assessment could not be completed";
+          dom.emptySubtitle.textContent = "Check the highlighted input above, then try again.";
         }
       })
       .finally(function () { setBusy(false); });
@@ -1357,12 +1411,14 @@
     show(dom.palette, true);
     dom.paletteInput.value = "";
     renderPalette();
+    trapDialogFocus(dom.palette);
     dom.paletteInput.focus();
   }
 
   function closePalette() {
     show(dom.palette, false);
     show(dom.paletteOverlay, false);
+    releaseDialogFocus();
   }
 
   /* ---------- wiring ---------- */

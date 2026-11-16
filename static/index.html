@@ -216,6 +216,14 @@
           <span id="empty-subtitle">Enter a route above to populate the intelligence workspace.</span>
         </section>
 
+        <section id="loading-skeleton" class="loading-skeleton" aria-hidden="true" hidden>
+          <div class="skeleton skeleton-map"></div>
+          <div class="skeleton-lines"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div id="loading-announcement" class="loading-announcement" role="status" aria-live="polite" hidden>
+          Assessment in progress. Public sources have not returned yet.
+        </div>
+
         <section id="results" class="results" aria-live="polite" hidden>
           <div class="results-head">
             <div>
@@ -227,14 +235,6 @@
               <span id="updated-at" class="updated-at">—</span>
               <span id="loading-pill" class="loading-pill" hidden>Contacting public sources…</span>
             </div>
-          </div>
-
-          <div id="loading-announcement" class="loading-announcement" role="status" aria-live="polite" hidden>
-            Assessment in progress. Public sources have not returned yet.
-          </div>
-          <div id="loading-skeleton" class="loading-skeleton" aria-hidden="true" hidden>
-            <div class="skeleton skeleton-map"></div>
-            <div class="skeleton-lines"><span></span><span></span><span></span><span></span></div>
           </div>
 
           <div class="intelligence-layout">
@@ -468,10 +468,18 @@
                 <h3>How RouteGuard decides</h3>
                 <p>Rules R01–R08 classify retrieved evidence; confidence C01–C05 is a separate axis. There is no numerical score.</p>
                 <div class="glossary" id="glossary">
-                  <span title="METAR: a routine aviation weather observation issued at an airport.">METAR</span>
-                  <span title="TAF: a terminal aerodrome forecast with validity windows.">TAF</span>
-                  <span title="Confidence: how complete and reliable the evidence set is, separate from classification.">Confidence</span>
-                  <span title="Coverage: which providers were reached and what their forward horizons can support.">Coverage</span>
+                  <button class="glossary-term" type="button" aria-label="METAR definition: a routine aviation weather observation issued at an airport.">
+                    METAR
+                  </button>
+                  <button class="glossary-term" type="button" aria-label="TAF definition: a terminal aerodrome forecast with validity windows.">
+                    TAF
+                  </button>
+                  <button class="glossary-term" type="button" aria-label="Confidence definition: how complete and reliable the evidence set is, separate from classification.">
+                    Confidence
+                  </button>
+                  <button class="glossary-term" type="button" aria-label="Coverage definition: which providers were reached and what their forward horizons can support.">
+                    Coverage
+                  </button>
                 </div>
               </article>
             </aside>

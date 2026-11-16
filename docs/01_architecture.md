@@ -201,7 +201,7 @@ ErrorEnvelope (all non-2xx)
   details: dict | None
 ```
 
-**Invariants enforced in `Assessment` model validator:** `risk` and `confidence` are independent fields (no derived numeric score); every non-`CLEAR` classification has ≥1 recommendation; every recommendation references ≥1 `evidence.id` that exists in `evidence` unless its `rule_id` is `R00_NO_COVERAGE` (then `evidence_ids` may be empty and rationale names the failed providers); `degraded == any(p.status != "OK" for p in provider_status)`.
+**Invariants enforced in `Assessment` model validator:** `risk` and `confidence` are independent fields (no derived numeric score); every non-`CLEAR` classification has ≥1 recommendation; every recommendation references ≥1 `evidence.id` that exists in `evidence` unless its `rule_id` is one of the terminal no-coverage rules `R01_NO_COVERAGE` or `R08_INDETERMINATE` (then `evidence_ids` may be empty); `degraded == any(p.status != "OK" for p in provider_status)`.
 
 ---
 

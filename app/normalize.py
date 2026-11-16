@@ -380,8 +380,14 @@ class Normalizer:
         valid_from: datetime | None,
         valid_to: datetime | None,
         note: str | None = None,
+        freshness_ref: datetime | None = None,
     ) -> None:
-        """Build and append one Evidence, applying all shared attributes."""
+        """Build and append one Evidence, applying all shared attributes.
+
+        ``freshness_ref`` lets a provider declare which timestamp represents its
+        data generation/issue time without misrepresenting a forecast validity
+        timestamp as an observation.
+        """
         provider = str(envelope["_provider"])
         signal_type = str(envelope["_signal"])
         source_url = str(envelope.get("_source_url", ""))
@@ -404,7 +410,11 @@ class Normalizer:
             reliability=reliability,
             geography=geography,
             temporal_overlap=overlap,
-            freshness=freshness(observed_at, signal_type, self._now),
+            freshness=freshness(
+                freshness_ref if freshness_ref is not None else observed_at,
+                signal_type,
+                self._now,
+            ),
             observed_at=observed_at,
             valid_from=valid_from,
             valid_to=valid_to,
@@ -598,4 +608,8 @@ class Normalizer:
             observed_at=observed,
             valid_from=valid_from,
             valid_to=valid_from + timedelta(hours=1),
+            # Open-Meteo does not expose an issue time for its hourly forecast.
+            # Use the forecast hour as the freshness reference, while leaving
+            # observed_at absent so it is never reported as an observation.
+            freshness_ref=valid_from if not is_current else None,
         )
