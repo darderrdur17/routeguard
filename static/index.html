@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#070a11" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#111827" />
     <title>RouteGuard | US Travel Disruption Intelligence</title>
     <meta name="application-name" content="RouteGuard" />
     <meta name="apple-mobile-web-app-title" content="RouteGuard" />
@@ -68,301 +68,429 @@
       href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@^6.18.0/dist/maplibre-gl.css"
+    />
     <link rel="stylesheet" href="/static/styles.css" />
+    <script type="module">
+      import * as maplibregl from "https://unpkg.com/maplibre-gl@^6.18.0/dist/maplibre-gl.mjs";
+      window.RouteGuardMapLibre = maplibregl;
+      window.dispatchEvent(new CustomEvent("routeguard:maplibre-ready"));
+    </script>
   </head>
-  <body>
+  <body data-mode="overview">
     <a class="skip-link" href="#assess-form">Skip to assessment</a>
 
-    <header class="topbar">
-      <div class="shell topbar-inner">
-        <div class="brand">
-          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M4 21.5 16 5l12 16.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M8.5 21.5h15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <circle cx="16" cy="21.5" r="2.6" fill="currentColor" />
-          </svg>
-          <div class="brand-text">
-            <span class="brand-name">RouteGuard</span>
-            <span class="brand-sub">Travel disruption intelligence</span>
-          </div>
-        </div>
-        <div class="topbar-actions">
-          <span class="live-chip"><span class="live-dot"></span> Prototype · deterministic engine</span>
-          <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh current assessment" title="Refresh assessment" disabled>
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 7.2A7 7 0 1 0 17 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M16.7 3.6v3.9h-3.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <button id="palette-open" class="command-trigger" type="button" aria-haspopup="dialog">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 4.5h13v11h-13z" fill="none" stroke="currentColor" stroke-width="1.5" rx="2"/><path d="M6.5 8h7M6.5 11.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <span>Commands</span><kbd id="palette-key">⌘ K</kbd>
-          </button>
-        </div>
+    <aside class="rail" aria-label="Primary navigation">
+      <a class="rail-brand" href="#top" aria-label="RouteGuard home" data-tooltip="RouteGuard">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M6 22 16 7l10 15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M10 22h12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <circle cx="16" cy="22" r="3" fill="currentColor" />
+        </svg>
+      </a>
+      <nav class="rail-nav" aria-label="Sections">
+        <button class="rail-item is-active" type="button" data-nav="overview" data-tooltip="Overview" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          <span class="sr-only">Overview</span>
+        </button>
+        <button class="rail-item" type="button" data-nav="intelligence" data-tooltip="Travel intelligence">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.5 10 11l4 3.5 6-8"/><path d="M4 21h16" opacity=".5"/></svg>
+          <span class="sr-only">Travel intelligence</span>
+        </button>
+        <button class="rail-item" type="button" data-nav="map" data-tooltip="Interactive map">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg>
+          <span class="sr-only">Interactive map</span>
+        </button>
+        <button class="rail-item" type="button" data-nav="disruptions" data-tooltip="Disruption intelligence">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>
+          <span class="sr-only">Disruption intelligence</span>
+        </button>
+        <button class="rail-item" type="button" data-nav="sources" data-tooltip="Data sources">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg>
+          <span class="sr-only">Data sources</span>
+        </button>
+        <button class="rail-item" type="button" data-nav="methodology" data-tooltip="Methodology">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5M9 12h8M9 16h6"/></svg>
+          <span class="sr-only">Methodology</span>
+        </button>
+      </nav>
+      <div class="rail-foot">
+        <button class="rail-item" type="button" data-nav="help" data-tooltip="Glossary">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 1 1 3.4 2.5c-.7.3-.9.8-.9 1.5M12 17h.01"/></svg>
+          <span class="sr-only">Glossary</span>
+        </button>
       </div>
-    </header>
+    </aside>
 
-    <main class="shell">
-      <section class="intro" aria-labelledby="intro-title">
-        <div class="intro-copy">
-          <p class="eyebrow">Operations workspace / 01</p>
-          <h1 id="intro-title">One clear view before<br />they take off.</h1>
-          <p class="intro-lede">
-            Combine public weather and aviation signals into an explainable,
-            airport-level assessment — with the evidence and the next action
-            attached to every conclusion.
-          </p>
-        </div>
-        <div class="intro-meta" aria-label="Prototype principles">
-          <div class="meta-line"><span>01</span> No numerical score</div>
-          <div class="meta-line"><span>02</span> Two independent sources</div>
-          <div class="meta-line"><span>03</span> Every rule traceable</div>
-        </div>
-      </section>
-
-      <section class="panel search-panel" aria-labelledby="form-heading">
-        <div class="panel-head">
-          <div>
-            <h2 id="form-heading">Plan a journey assessment</h2>
-            <p class="muted">Curated US cities or IATA codes. The date is the departure airport's local calendar date.</p>
+    <div class="app-frame" id="top">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="section-title">
+            <p class="eyebrow">RouteGuard / Operations workspace</p>
+            <h1>Travel Intelligence</h1>
+            <p>Monitor potential travel disruptions, understand their impact and make informed operational decisions.</p>
           </div>
-          <span class="panel-tag">INPUT</span>
-        </div>
-        <form id="assess-form" novalidate>
-          <div class="form-grid">
-            <label class="field">
-              <span class="field-label">Origin</span>
-              <span class="input-wrap">
-                <input id="origin" name="origin" type="text" list="airport-options" value="New York" autocomplete="off" required minlength="2" maxlength="64" spellcheck="false" />
-                <span id="origin-code" class="input-code">JFK</span>
-              </span>
-            </label>
-            <button id="swap-button" class="swap-button" type="button" aria-label="Swap origin and destination" title="Swap route">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h11l-3-3M16 13H5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="top-actions">
+            <span id="freshness-chip" class="freshness-chip">No assessment yet</span>
+            <div class="mode-switch" role="group" aria-label="Experience mode">
+              <button id="mode-overview" class="is-active" type="button" aria-pressed="true">Overview</button>
+              <button id="mode-analyst" type="button" aria-pressed="false">Analyst</button>
+            </div>
+            <button id="refresh-button" class="icon-button light" type="button" aria-label="Refresh current assessment" title="Refresh assessment" disabled>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 7.2A7 7 0 1 0 17 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M16.7 3.6v3.9h-3.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <label class="field">
-              <span class="field-label">Destination</span>
-              <span class="input-wrap">
-                <input id="destination" name="destination" type="text" list="airport-options" value="San Francisco" autocomplete="off" required minlength="2" maxlength="64" spellcheck="false" />
-                <span id="destination-code" class="input-code">SFO</span>
-              </span>
-            </label>
-            <label class="field">
-              <span class="field-label">Travel date</span>
-              <span class="input-wrap">
-                <input id="travel-date" name="date" type="date" required />
-              </span>
-            </label>
-            <button id="submit-button" class="primary-button" type="submit">
-              <span>Assess route</span>
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <button id="palette-open" class="command-trigger" type="button" aria-haspopup="dialog">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.7" cy="8.7" r="5.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m12.6 12.6 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span>Search</span><kbd id="palette-key">⌘ K</kbd>
             </button>
           </div>
-          <datalist id="airport-options"></datalist>
-        </form>
-        <div class="form-foot">
-          <p id="form-error" class="error-message" role="alert" hidden></p>
-          <p class="scope-line">
-            <strong>Scope:</strong> Commercial air travel, airport-level — not a verified flight
-            itinerary. US routes use NWS + AWC; other countries use Open-Meteo + AWC.
-            No flight number, gate, schedule, connection or aircraft route is assessed.
-          </p>
         </div>
-      </section>
+      </header>
 
-      <section id="empty-state" class="empty-state" aria-live="polite">
-        <div class="empty-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
-        <p id="empty-title">Awaiting an assessment</p>
-        <span id="empty-subtitle">Enter a route above to populate the command centre.</span>
-      </section>
-
-      <section id="results" class="results" aria-live="polite" hidden>
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Assessment / <span id="request-short">—</span></p>
-            <h2>Journey command centre</h2>
+      <main class="workspace-shell">
+        <section class="panel search-panel" aria-labelledby="form-heading">
+          <div class="search-head">
+            <div>
+              <h2 id="form-heading">Plan a journey assessment</h2>
+              <p class="muted">Curated airports worldwide. The date is the departure airport's local calendar date.</p>
+            </div>
+            <span class="panel-tag">ROUTE INPUT</span>
           </div>
-          <div class="section-head-right">
-            <span id="coverage-badge" class="coverage-badge">—</span>
-            <span id="updated-at" class="updated-at">—</span>
-            <span id="loading-pill" class="loading-pill" hidden>Contacting sources…</span>
+          <form id="assess-form" novalidate>
+            <div class="form-grid">
+              <label class="field">
+                <span class="field-label">Origin</span>
+                <span class="input-wrap">
+                  <input id="origin" name="origin" type="text" list="airport-options" value="New York" autocomplete="off" required minlength="2" maxlength="64" spellcheck="false" />
+                  <span id="origin-code" class="input-code">JFK</span>
+                </span>
+              </label>
+              <button id="swap-button" class="swap-button" type="button" aria-label="Swap origin and destination" title="Swap route">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h11l-3-3M16 13H5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <label class="field">
+                <span class="field-label">Destination</span>
+                <span class="input-wrap">
+                  <input id="destination" name="destination" type="text" list="airport-options" value="San Francisco" autocomplete="off" required minlength="2" maxlength="64" spellcheck="false" />
+                  <span id="destination-code" class="input-code">SFO</span>
+                </span>
+              </label>
+              <label class="field">
+                <span class="field-label">Travel date</span>
+                <span class="input-wrap">
+                  <input id="travel-date" name="date" type="date" required />
+                </span>
+              </label>
+              <button id="submit-button" class="primary-button" type="submit">
+                <span>Assess route</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <datalist id="airport-options"></datalist>
+          </form>
+          <div class="form-foot">
+            <p id="form-error" class="error-message" role="alert" hidden></p>
+            <p class="scope-line">
+              <strong>Scope:</strong> commercial air travel, airport-level — not a verified flight itinerary.
+              US routes use NWS + AWC; other countries use Open-Meteo + AWC. No flight number, gate,
+              schedule, connection or aircraft trajectory is assessed.
+            </p>
           </div>
+        </section>
+
+        <div class="view-bar" role="group" aria-label="Dashboard views">
+          <span class="view-label">View</span>
+          <button class="view-pill is-active" type="button" data-view="all" aria-pressed="true">All</button>
+          <button class="view-pill" type="button" data-view="routes" aria-pressed="false">Routes</button>
+          <button class="view-pill" type="button" data-view="weather" aria-pressed="false">Weather</button>
+          <button class="view-pill" type="button" data-view="operations" aria-pressed="false">Airport Operations</button>
+          <button class="view-pill" type="button" data-view="advisories" aria-pressed="false">Aviation Advisories</button>
+          <button class="view-pill" type="button" data-view="high" aria-pressed="false">High Priority</button>
         </div>
 
-        <div class="bento">
-          <article class="panel card card-journey" aria-labelledby="journey-heading">
-            <div class="panel-head compact">
-              <h3 id="journey-heading">Journey</h3>
-              <span class="panel-tag">ROUTE</span>
+        <section id="empty-state" class="empty-state" aria-live="polite">
+          <div class="empty-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+          <p id="empty-title">Awaiting an assessment</p>
+          <span id="empty-subtitle">Enter a route above to populate the intelligence workspace.</span>
+        </section>
+
+        <section id="results" class="results" aria-live="polite" hidden>
+          <div class="results-head">
+            <div>
+              <p class="eyebrow">Assessment / <span id="request-short">—</span></p>
+              <h2>Journey intelligence</h2>
             </div>
-            <div class="journey-line">
-              <div class="airport-block" data-airport="origin" id="airport-origin" tabindex="0" role="button" aria-label="Focus origin airport">
-                <span class="airport-code" id="origin-iata">—</span>
-                <span class="airport-city" id="origin-city">—</span>
-                <span class="airport-country" id="origin-country">—</span>
-                <span class="airport-meta" id="origin-meta">—</span>
+            <div class="results-actions">
+              <span id="coverage-badge" class="coverage-badge">—</span>
+              <span id="updated-at" class="updated-at">—</span>
+              <span id="loading-pill" class="loading-pill" hidden>Contacting public sources…</span>
+            </div>
+          </div>
+
+          <div id="loading-announcement" class="loading-announcement" role="status" aria-live="polite" hidden>
+            Assessment in progress. Public sources have not returned yet.
+          </div>
+          <div id="loading-skeleton" class="loading-skeleton" aria-hidden="true" hidden>
+            <div class="skeleton skeleton-map"></div>
+            <div class="skeleton-lines"><span></span><span></span><span></span><span></span></div>
+          </div>
+
+          <div class="intelligence-layout">
+            <div class="map-column">
+              <article class="card map-card" id="map-card" aria-labelledby="map-heading">
+                <div class="card-head">
+                  <div>
+                    <p class="eyebrow">Geographic intelligence</p>
+                    <h2 id="map-heading">Route intelligence map</h2>
+                    <p class="muted small">Select an airport or signal to inspect its linked evidence.</p>
+                  </div>
+                  <div class="map-actions">
+                    <button id="map-reset" class="soft-button" type="button">Reset view</button>
+                    <button id="map-fullscreen" class="soft-button" type="button">Fullscreen</button>
+                  </div>
+                </div>
+
+                <div class="map-stage" id="map-stage">
+                  <div id="map-canvas" role="application" aria-label="Interactive RouteGuard map"></div>
+                  <svg id="route-map" viewBox="0 0 800 420" role="img" aria-label="Schematic fallback map of airport positions and signal locations"></svg>
+                  <div id="map-tooltip" class="map-tooltip" role="status" hidden></div>
+
+                  <div class="map-controls" aria-label="Map layer controls">
+                    <p class="map-controls-title">Layers</p>
+                    <label><input id="layer-airports" type="checkbox" checked /> <span>Airports</span></label>
+                    <label><input id="layer-routes" type="checkbox" checked /> <span>Route reference</span></label>
+                    <label><input id="layer-weather" type="checkbox" checked /> <span>Weather</span></label>
+                    <label><input id="layer-aviation" type="checkbox" checked /> <span>Aviation</span></label>
+                    <label class="is-disabled"><input id="layer-operations" type="checkbox" disabled /> <span>Operations <small>no feed</small></span></label>
+                  </div>
+
+                  <div class="map-legend" id="map-legend" aria-label="Map legend">
+                    <span><i class="legend-dot origin"></i> Origin</span>
+                    <span><i class="legend-dot destination"></i> Destination</span>
+                    <span><i class="legend-dot weather"></i> Weather signal</span>
+                    <span><i class="legend-dot aviation"></i> Aviation signal</span>
+                  </div>
+
+                  <div class="map-caption">
+                    <strong>Illustrative airport-pair reference.</strong> The dashed line joins endpoints only and is not a flight path, trajectory or verified itinerary.
+                    Basemap © <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a>,
+                    <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a>,
+                    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors.
+                  </div>
+                </div>
+              </article>
+
+              <div class="support-grid">
+                <article class="card card-journey coral-card" aria-labelledby="journey-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Journey</p><h3 id="journey-heading">Selected route</h3></div>
+                    <span class="panel-tag">ROUTE</span>
+                  </div>
+                  <div class="journey-line">
+                    <div class="airport-block" data-airport="origin" id="airport-origin" tabindex="0" role="button" aria-label="Focus origin airport">
+                      <span class="airport-code" id="origin-iata">—</span>
+                      <span class="airport-city" id="origin-city">—</span>
+                      <span class="airport-country" id="origin-country">—</span>
+                      <span class="airport-meta" id="origin-meta">—</span>
+                    </div>
+                    <div class="journey-track" aria-hidden="true">
+                      <span class="journey-dot"></span><span class="journey-rule"></span>
+                      <svg class="journey-plane" viewBox="0 0 24 24"><path d="m3 13 18-7-6 16-3.2-6.2L3 13Z" fill="currentColor"/></svg>
+                      <span class="journey-rule"></span><span class="journey-dot"></span>
+                    </div>
+                    <div class="airport-block" data-airport="destination" id="airport-destination" tabindex="0" role="button" aria-label="Focus destination airport">
+                      <span class="airport-code" id="destination-iata">—</span>
+                      <span class="airport-city" id="destination-city">—</span>
+                      <span class="airport-country" id="destination-country">—</span>
+                      <span class="airport-meta" id="destination-meta">—</span>
+                    </div>
+                  </div>
+                  <div class="journey-facts">
+                    <div><span>Local travel date</span><strong id="fact-date">—</strong></div>
+                    <div><span>Precision</span><strong>Whole day</strong></div>
+                    <div><span>UTC window</span><strong id="fact-window">—</strong></div>
+                    <div><span>Basis</span><strong id="fact-basis">—</strong></div>
+                  </div>
+                </article>
+
+                <article class="card card-verdict soft-pink-card" aria-labelledby="verdict-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Overall journey risk</p><h3 id="verdict-heading">Assessment</h3></div>
+                    <span class="panel-tag">DECISION</span>
+                  </div>
+                  <div id="verdict-core" class="verdict-core">
+                    <p class="verdict-label">Classification</p>
+                    <p id="classification" class="classification">—</p>
+                    <p id="classification-note" class="verdict-note">—</p>
+                    <div class="verdict-metrics">
+                      <div><span>Confidence</span><strong id="confidence">—</strong></div>
+                      <div><span>Coverage</span><strong id="degraded">—</strong></div>
+                      <div><span>Evidence</span><strong id="evidence-count">—</strong></div>
+                    </div>
+                  </div>
+                  <p id="coverage-note" class="coverage-note"></p>
+                  <p class="plain-language" data-mode-copy="overview">Plain English: this is a rule-based interpretation of retrieved public signals, not a probability or an airport closure notice.</p>
+                </article>
+
+                <article class="card card-weather" aria-labelledby="weather-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Weather intelligence</p><h3 id="weather-heading">Weather signals</h3></div>
+                    <span class="panel-tag">WEATHER</span>
+                  </div>
+                  <div id="weather-summary" class="signal-summary"></div>
+                </article>
+
+                <article class="card card-charcoal" aria-labelledby="operations-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Airport operations</p><h3 id="operations-heading">Operational status</h3></div>
+                    <span class="panel-tag">NOT INTEGRATED</span>
+                  </div>
+                  <div id="operations-summary" class="signal-summary"></div>
+                  <p class="charcoal-note">Weather signals are never represented as delays, closures or ground stops. Verify operational status with the relevant authority.</p>
+                </article>
+
+                <article class="card card-aviation" aria-labelledby="aviation-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Aviation intelligence</p><h3 id="aviation-heading">METAR &amp; TAF</h3></div>
+                    <span class="panel-tag">AVIATION</span>
+                  </div>
+                  <div id="aviation-summary" class="signal-summary"></div>
+                </article>
+
+                <article class="card card-actions salmon-card" aria-labelledby="actions-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Operational next steps</p><h3 id="actions-heading">Recommended actions</h3></div>
+                    <span class="panel-tag">NEXT</span>
+                  </div>
+                  <ol id="recommendations" class="action-list"></ol>
+                </article>
               </div>
-              <div class="journey-track" aria-hidden="true">
-                <span class="journey-dot"></span>
-                <span class="journey-rule"></span>
-                <svg class="journey-plane" viewBox="0 0 24 24"><path d="m3 13 18-7-6 16-3.2-6.2L3 13Z" fill="currentColor"/></svg>
-                <span class="journey-rule"></span>
-                <span class="journey-dot"></span>
+
+              <div class="detail-grid">
+                <article class="card card-timeline" aria-labelledby="timeline-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Evidence chronology</p><h3 id="timeline-heading">Signal timeline</h3></div>
+                    <span class="panel-tag">TIME</span>
+                  </div>
+                  <div id="travel-band" class="travel-band"></div>
+                  <div id="timeline" class="timeline" role="list"></div>
+                </article>
+
+                <article class="card card-evidence" aria-labelledby="evidence-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Provenance</p><h3 id="evidence-heading">Evidence ledger</h3></div>
+                    <span class="panel-tag">EVIDENCE</span>
+                  </div>
+                  <div id="evidence-filters" class="filter-row" role="group" aria-label="Filter evidence"></div>
+                  <div id="evidence-list" class="evidence-list" role="list"></div>
+                  <p id="evidence-empty" class="empty-inline" hidden>No genuine evidence matched this view.</p>
+                </article>
+
+                <article class="card card-distribution" aria-labelledby="distribution-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Signal mix</p><h3 id="distribution-heading">Evidence distribution</h3></div>
+                    <span class="panel-tag">SIGNALS</span>
+                  </div>
+                  <div id="distribution" class="distribution"></div>
+                </article>
+
+                <article class="card card-providers" aria-labelledby="providers-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Coverage</p><h3 id="providers-heading">Data sources</h3></div>
+                    <span class="panel-tag">SOURCES</span>
+                  </div>
+                  <div id="provider-status" class="provider-grid"></div>
+                  <div class="faa-note">
+                    <strong>FAA operational status: not integrated.</strong> Out-of-app checks:
+                    <a href="https://nasstatus.faa.gov/" target="_blank" rel="noopener noreferrer">NAS status</a> and
+                    <a href="https://www.fly.faa.gov/flyfaa/usmap.jsp" target="_blank" rel="noopener noreferrer">Airport Status &amp; Delays</a>.
+                    These are never RouteGuard evidence.
+                  </div>
+                </article>
+
+                <article class="card card-rules" id="methodology-card" aria-labelledby="rules-heading">
+                  <div class="card-head compact">
+                    <div><p class="eyebrow">Deterministic methodology</p><h3 id="rules-heading">Decision trace</h3></div>
+                    <span class="panel-tag">RULES</span>
+                  </div>
+                  <ul id="triggered-rules" class="rule-list"></ul>
+                  <details class="assumptions-details" open>
+                    <summary>Assumptions &amp; coverage limits</summary>
+                    <ul id="assumptions" class="plain-list"></ul>
+                  </details>
+                </article>
               </div>
-              <div class="airport-block" data-airport="destination" id="airport-destination" tabindex="0" role="button" aria-label="Focus destination airport">
-                <span class="airport-code" id="destination-iata">—</span>
-                <span class="airport-city" id="destination-city">—</span>
-                <span class="airport-country" id="destination-country">—</span>
-                <span class="airport-meta" id="destination-meta">—</span>
-              </div>
             </div>
-            <div class="journey-facts">
-              <div><span>Local travel date</span><strong id="fact-date">—</strong></div>
-              <div><span>Precision</span><strong>Whole day</strong></div>
-              <div><span>UTC window</span><strong id="fact-window">—</strong></div>
-              <div><span>Basis</span><strong id="fact-basis">—</strong></div>
-            </div>
-          </article>
 
-          <article class="panel card card-verdict" aria-labelledby="verdict-heading">
-            <div class="panel-head compact">
-              <h3 id="verdict-heading">Overall assessment</h3>
-              <span class="panel-tag">DECISION</span>
-            </div>
-            <div id="verdict-core" class="verdict-core">
-              <p class="verdict-label">Classification</p>
-              <p id="classification" class="classification">—</p>
-              <p id="classification-note" class="verdict-note">—</p>
-              <div class="verdict-metrics">
-                <div><span>Confidence</span><strong id="confidence">—</strong></div>
-                <div><span>Coverage</span><strong id="degraded">—</strong></div>
-                <div><span>Evidence</span><strong id="evidence-count">—</strong></div>
-              </div>
-            </div>
-            <p id="coverage-note" class="coverage-note"></p>
-          </article>
+            <aside class="context-column" id="context-panel" aria-label="Contextual intelligence panel">
+              <article class="context-card context-primary">
+                <p class="eyebrow">Active route</p>
+                <h3 id="context-route-title">—</h3>
+                <p id="context-route-sub" class="muted">—</p>
+                <div class="context-route-line">
+                  <div><span id="context-origin-code">—</span><small id="context-origin-city">Origin</small></div>
+                  <span class="context-arrow" aria-hidden="true">→</span>
+                  <div><span id="context-destination-code">—</span><small id="context-destination-city">Destination</small></div>
+                </div>
+                <dl class="context-facts">
+                  <div><dt>Travel date</dt><dd id="context-date">—</dd></div>
+                  <div><dt>Providers</dt><dd id="context-providers">—</dd></div>
+                  <div><dt>Focus</dt><dd id="context-focus">—</dd></div>
+                </dl>
+              </article>
 
-          <article class="panel card card-map" aria-labelledby="map-heading">
-            <div class="panel-head compact">
-              <div>
-                <h3 id="map-heading">Route geography</h3>
-                <p class="muted small">Select a marker to inspect the linked signal.</p>
-              </div>
-              <span class="panel-tag">MAP</span>
-            </div>
-            <div class="map-frame">
-              <svg id="route-map" viewBox="0 0 800 420" role="img" aria-label="Schematic map of airport positions and signal locations"></svg>
-              <div id="map-tooltip" class="map-tooltip" role="status" hidden></div>
-            </div>
-            <div class="map-legend">
-              <span><i class="legend-dot origin"></i> Origin</span>
-              <span><i class="legend-dot destination"></i> Destination</span>
-              <span><i class="legend-dot signal"></i> Signal location</span>
-              <span class="legend-note">Dashed connector links endpoints only — it is not an aircraft route.</span>
-            </div>
-          </article>
+              <article class="context-card" id="selection-card">
+                <div class="context-card-head">
+                  <div><p class="eyebrow">Selected signal</p><h3 id="context-selection-title">Nothing selected</h3></div>
+                  <button id="context-detail-button" class="soft-button small" type="button" disabled>Inspect</button>
+                </div>
+                <div id="context-selection-body" class="context-selection-body">
+                  <p class="muted">Select a map marker, evidence card or timeline item to see its source, geography and validity here.</p>
+                </div>
+              </article>
 
-          <article class="panel card card-actions" aria-labelledby="actions-heading">
-            <div class="panel-head compact">
-              <h3 id="actions-heading">Recommended actions</h3>
-              <span class="panel-tag">NEXT</span>
-            </div>
-            <ol id="recommendations" class="action-list"></ol>
-          </article>
+              <article class="context-card">
+                <p class="eyebrow">Priority findings</p>
+                <h3>What needs attention</h3>
+                <div id="priority-findings" class="priority-list"></div>
+              </article>
 
-          <article class="panel card card-origin" aria-labelledby="origin-intel-heading">
-            <div class="panel-head compact">
-              <h3 id="origin-intel-heading">Origin intelligence</h3>
-              <span class="panel-tag">DEP</span>
-            </div>
-            <div id="origin-intel" class="intel-body"></div>
-          </article>
+              <article class="context-card">
+                <p class="eyebrow">Source health</p>
+                <h3>Coverage &amp; freshness</h3>
+                <div id="context-sources" class="context-sources"></div>
+              </article>
 
-          <article class="panel card card-destination" aria-labelledby="destination-intel-heading">
-            <div class="panel-head compact">
-              <h3 id="destination-intel-heading">Destination intelligence</h3>
-              <span class="panel-tag">ARR</span>
-            </div>
-            <div id="destination-intel" class="intel-body"></div>
-          </article>
-
-          <article class="panel card card-timeline" aria-labelledby="timeline-heading">
-            <div class="panel-head compact">
-              <div>
-                <h3 id="timeline-heading">Signal timeline</h3>
-                <p class="muted small">Observed and forecast intervals from retrieved evidence only.</p>
-              </div>
-              <span class="panel-tag">TIME</span>
-            </div>
-            <div id="travel-band" class="travel-band"></div>
-            <div id="timeline" class="timeline" role="list"></div>
-          </article>
-
-          <article class="panel card card-distribution" aria-labelledby="distribution-heading">
-            <div class="panel-head compact">
-              <div>
-                <h3 id="distribution-heading">Evidence distribution</h3>
-                <p class="muted small">Counts of normalized signals — not a probability or delay score.</p>
-              </div>
-              <span class="panel-tag">SIGNALS</span>
-            </div>
-            <div id="distribution" class="distribution"></div>
-          </article>
-
-          <article class="panel card card-evidence" aria-labelledby="evidence-heading">
-            <div class="panel-head compact">
-              <div>
-                <h3 id="evidence-heading">Evidence ledger</h3>
-                <p class="muted small">Weather signals are not airport operational status, delays or closures.</p>
-              </div>
-              <span class="panel-tag">PROVENANCE</span>
-            </div>
-            <div id="evidence-filters" class="filter-row" role="group" aria-label="Filter evidence"></div>
-            <div id="evidence-list" class="evidence-list" role="list"></div>
-            <p id="evidence-empty" class="empty-inline" hidden>No evidence matched this view.</p>
-          </article>
-
-          <article class="panel card card-providers" aria-labelledby="providers-heading">
-            <div class="panel-head compact">
-              <h3 id="providers-heading">Source coverage</h3>
-              <span class="panel-tag">SOURCES</span>
-            </div>
-            <div id="provider-status" class="provider-grid"></div>
-            <div class="faa-note">
-              <strong>FAA operational status: not integrated.</strong> Verify directly at
-              <a href="https://nasstatus.faa.gov/" target="_blank" rel="noopener noreferrer">NAS status</a>
-              and
-              <a href="https://www.fly.faa.gov/flyfaa/usmap.jsp" target="_blank" rel="noopener noreferrer">Airport Status &amp; Delays</a>.
-              These links are an out-of-app check, never RouteGuard evidence.
-            </div>
-          </article>
-
-          <article class="panel card card-rules" aria-labelledby="rules-heading">
-            <div class="panel-head compact">
-              <h3 id="rules-heading">Decision trace</h3>
-              <span class="panel-tag">RULES</span>
-            </div>
-            <ul id="triggered-rules" class="rule-list"></ul>
-            <details class="assumptions-details">
-              <summary>Assumptions &amp; coverage limits</summary>
-              <ul id="assumptions" class="plain-list"></ul>
-            </details>
-          </article>
-        </div>
-      </section>
-    </main>
+              <article class="context-card context-method">
+                <p class="eyebrow">Understand the result</p>
+                <h3>How RouteGuard decides</h3>
+                <p>Rules R01–R08 classify retrieved evidence; confidence C01–C05 is a separate axis. There is no numerical score.</p>
+                <div class="glossary" id="glossary">
+                  <span title="METAR: a routine aviation weather observation issued at an airport.">METAR</span>
+                  <span title="TAF: a terminal aerodrome forecast with validity windows.">TAF</span>
+                  <span title="Confidence: how complete and reliable the evidence set is, separate from classification.">Confidence</span>
+                  <span title="Coverage: which providers were reached and what their forward horizons can support.">Coverage</span>
+                </div>
+              </article>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <div id="drawer-overlay" class="drawer-overlay" hidden></div>
     <aside id="evidence-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
       <div class="drawer-head">
-        <div>
-          <p class="eyebrow">Evidence detail</p>
-          <h2 id="drawer-title">—</h2>
-        </div>
-        <button id="drawer-close" class="icon-button" type="button" aria-label="Close evidence detail">
+        <div><p class="eyebrow">Evidence detail</p><h2 id="drawer-title">—</h2></div>
+        <button id="drawer-close" class="icon-button light" type="button" aria-label="Close evidence detail">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5 5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
         </button>
       </div>
       <div id="drawer-body" class="drawer-body"></div>
       <div class="drawer-foot">
-        <button id="drawer-map" class="ghost-button" type="button">Show on map</button>
+        <button id="drawer-map" class="soft-button" type="button">Show on map</button>
         <a id="drawer-source" class="primary-button small" href="#" target="_blank" rel="noopener noreferrer">Open source <span aria-hidden="true">↗</span></a>
       </div>
     </aside>
@@ -382,10 +510,8 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <footer class="site-footer">
-      <div class="shell footer-inner">
-        <p>RouteGuard prototype · Deterministic decision table · No numerical score and no AI-generated prose at runtime.</p>
-        <p>AI assisted development and design only.</p>
-      </div>
+      <p>RouteGuard prototype · Deterministic decision table · No numerical score and no AI-generated prose at runtime.</p>
+      <p>AI assisted development and design only.</p>
     </footer>
 
     <script src="/static/app.js"></script>

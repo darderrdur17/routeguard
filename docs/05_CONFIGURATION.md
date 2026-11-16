@@ -31,6 +31,14 @@ python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8765
 
 No other environment variable is read by the application. Host and port are uvicorn command-line options, not application settings. All timeouts, retry counts, provider URLs, freshness thresholds and authoritative fallback links are constants in `app/config.py`. On Vercel, `ROUTEGUARD_SITE_URL` is configured as a production environment variable and does not need to be supplied by a visitor.
 
+## 2a. Frontend map resources
+
+The interactive map loads MapLibre GL JS from `unpkg.com` and the keyless OpenFreeMap
+Positron style/tiles from `tiles.openfreemap.org`. These are public CDN resources,
+require **no API key**, and are attributed in the interface. If the CDN or basemap is
+unavailable, the bundled SVG schematic takes over with zoom, pan, layers and marker
+selection; no backend behaviour changes.
+
 ## 3. What is deliberately not configurable yet
 
 - No authentication, API gateway, secrets store or per-user rate limiting.

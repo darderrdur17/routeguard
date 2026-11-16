@@ -86,3 +86,21 @@ Final state after the global-coverage pass: **79 pytest tests pass**; ZIP re-ext
 | No metadata regressions | Pass | `python3 -m pytest -q` → **84 passed**, including 5 new SEO tests; no application/risk behaviour changed. |
 
 The Vercel project name `routeguard` was accepted; the short alias `routeguard-six.vercel.app` was the actual URL assigned by Vercel and was therefore used for canonical metadata rather than an assumed `routeguard.vercel.app`.
+
+---
+
+## Addendum — Dashboard V29, interactive map and motion (same date)
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| V29 shell | Pass | Browser at 1440×900: dark 7-item rail, light canvas `rgb(243,244,246)`, heading `Travel Intelligence`, 6 view pills, coral/pastel/charcoal cards and right contextual panel all visible. |
+| Map as centrepiece | Pass | `#map-stage` measured 620px on desktop; MapLibre GL JS loaded with OpenFreeMap Positron; visible attribution; reset, fullscreen, zoom, pan and layer controls present. SVG fallback retained and unit-checked. |
+| Layer integrity | Pass | Airports, route reference, weather and aviation toggles are live; Airport Operations is disabled with `no feed`; Aviation Advisories is an honest empty view. Weather view with no NWS/Open-Meteo evidence showed 0 cards and only the 2 airport markers. |
+| Evidence synchronization | Pass | Clicking the first evidence card set `#context-selection-title` to `AWC · awc metar`, selected exactly 1 card and emphasized the map marker/timeline item through the shared selection state. |
+| Progressive disclosure | Pass | Overview/Analyst switch changed `body[data-mode]` to `analyst`; glossary tooltips and technical-only fields are present without hiding evidence. |
+| Motion and honesty | Pass | Staggered cards, marker entrance, map focus, skeleton and refresh-line states implemented; loading announcement and `aria-busy` verified; no percentage or simulated stage. |
+| Responsive and accessible | Pass | 820px and 390px runs had no horizontal overflow; mobile rail becomes a bottom bar; keyboard handlers, visible focus, skip link and reduced-motion rules retained. |
+| Backend integrity | Pass | `/api/assess` returned 200 with the existing deterministic payload; classification `INDETERMINATE`, 2 evidence items, no score. Invalid `Atlantis` route returned `UNMAPPED_CITY`, hid results and showed the empty state. |
+| No regressions | Pass | `python3 -m pytest -q` → **90 passed** (84 prior + 6 frontend contract tests); no page errors and no console errors in the browser pass. |
+
+Screenshots: `/tmp/routeguard_v29_desktop.png`, `/tmp/routeguard_v29_tablet.png`, `/tmp/routeguard_v29_mobile.png`. The backend, risk rules, provider adapters, SEO metadata and canonical URL were intentionally unchanged.

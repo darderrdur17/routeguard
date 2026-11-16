@@ -50,32 +50,43 @@ production alias even when a preview deployment is visited. `robots.txt` and
 
 ### Interface
 
-The frontend is a dependency-free single-page command centre. It renders a bento
-dashboard with a journey summary, overall classification, schematic route map,
-recommended actions, origin/destination intelligence, timestamped signal timeline,
-evidence distribution, filterable evidence ledger and source coverage panel.
+The frontend follows the supplied Dashboard V29 direction: a narrow dark navigation
+rail, a light workspace canvas, rounded coral/pastel/charcoal cards, compact pill
+filters and a dedicated right contextual panel. The interactive geographic map is
+the visual centrepiece, not a decorative thumbnail.
 
-- The map is a schematic longitude/latitude projection with bounds recomputed per
-  route, so both regional and intercontinental journeys render honestly. Signals
-  inherit their airport's coordinates from the curated backend registry. The dashed
-  connector links endpoints only — it is **not** an aircraft route or flight path.
-- A failed submission now clears the previous result and shows the empty state; a
-  stale assessment is never displayed beside a fresh error.
-- Selecting a marker, timeline item or evidence card opens a contextual drawer with
-  source, original excerpt, observation/validity/retrieval times, verification class,
-  RouteGuard interpretation and journey relevance. Selections are cross-linked:
-  map → evidence, airport card → map/filter, timeline → evidence.
-- Evidence filters operate on retrieved signal types and freshness only. Airport
-  operations and aviation advisories are labelled as not integrated; there are no
-  decorative or non-functional controls.
-- `⌘ K` / `Ctrl K` opens a working command palette (navigation, refresh, clear filters,
-  and setting either airport from the curated registry). Palette hints show each
-  airport's country. Refresh re-queries the sources and reports whether the
-  classification changed.
-- Loading is honest: the backend returns one aggregate response, so the UI shows a
-  single "Contacting sources…" state with no simulated stages or percentages.
-- Reduced-motion preferences, keyboard navigation, visible focus states and responsive
-  desktop/tablet/mobile layouts are implemented.
+- **Map:** MapLibre GL JS loads progressively from CDN with the keyless OpenFreeMap
+  Positron style. Real airport coordinates and normalized evidence coordinates come
+  from the backend; the map supports zoom, pan, marker selection, reset, fullscreen,
+  layer toggles, a legend and visible OpenFreeMap/OpenMapTiles/OpenStreetMap
+  attribution. If MapLibre cannot load, the original SVG schematic remains fully
+  interactive with zoom, pan and the same layer controls.
+- **Route honesty:** the dashed connector is explicitly labelled an illustrative
+  airport-pair reference. It is never presented as a flight path, trajectory or
+  verified itinerary.
+- **Layer integrity:** Airports, Route reference, Weather and Aviation/METAR–TAF are
+  toggleable because they have real data. Airport Operations is visibly disabled
+  because no verified operational feed is integrated. Aviation Advisories is a
+  genuine empty view for the same reason.
+- **Synchronization:** selecting a map marker, evidence card, timeline item or
+  priority finding updates one shared selection state. The contextual panel, map
+  marker emphasis, evidence card and timeline item all stay in sync.
+- **Progressive disclosure:** Overview mode uses plain language; Analyst mode reveals
+  raw excerpts, reliability and technical detail. Glossary tooltips explain METAR,
+  TAF, confidence and coverage without hiding evidence.
+- **View pills:** All, Routes, Weather, Airport Operations, Aviation Advisories and
+  High Priority filter real evidence and map visibility. Empty views explain what is
+  unavailable rather than inventing data.
+- **Motion:** staggered entrance, card hover/selection, map focus transitions,
+  marker emphasis, filter/timeline transitions, drawer/panel motion and honest
+  skeleton states are implemented. Refresh preserves the previous assessment and
+  shows an indeterminate line — never a fabricated progress percentage.
+- **Keyboard and accessibility:** `⌘ K` / `Ctrl K` opens the command palette, all
+  controls are keyboard reachable, focus is visible, loading is announced, and
+  `prefers-reduced-motion` disables non-essential motion. Layouts were checked at
+  1440px, 820px and 390px with no overflow.
+- A failed submission still clears prior results and shows the empty state; stale
+  assessments are never left beside a fresh error.
 
 ## Test
 
@@ -90,7 +101,10 @@ the recorded provider payload shapes documented in `docs/02_api_verification_not
 section 10 plus determinism, no-score and evidence-linkage assertions.
 `tests/test_seo.py` verifies the exact browser title, meta description, canonical/OG
 URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap and
-1200×630 Open Graph image. Current result: **84 passed**.
+1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
+real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
+enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
+Current result: **90 passed**.
 
 ## Dependencies
 
@@ -106,6 +120,11 @@ reference pins and the versions actually tested in this environment:
 | pytest | 9.2.0 | `>=8.3.4,<10` |
 
 Python 3.11+ is required for `zoneinfo`. Tested with Python 3.13.12.
+
+The browser also loads MapLibre GL JS from `unpkg.com` and the keyless OpenFreeMap
+Positron basemap from `tiles.openfreemap.org`. Neither requires an API key or an npm
+build step; if either is unavailable, the bundled SVG map fallback remains usable.
+No backend dependency or paid service is introduced by the map.
 
 ## Providers and real endpoints
 
@@ -227,5 +246,5 @@ no AI-derived classification.
 Application: `app/{__init__,main,config,models,airports.json,cities,http_client,logging,normalize,risk,service}.py`, `app/providers/{__init__,base,nws,awc,open_meteo}.py`.
 Deployment: `api/index.py`, `vercel.json`, `.vercelignore`, `.gitignore`.
 Frontend: `static/{index.html,styles.css,app.js,favicon.svg,apple-touch-icon.png,og-image.png}`.
-Tests: `tests/{__init__,conftest,test_cities,test_normalize,test_adapters,test_risk,test_api,test_open_meteo,test_seo}.py` and `tests/fixtures/*.json`.
+Tests: `tests/{__init__,conftest,test_cities,test_normalize,test_adapters,test_risk,test_api,test_open_meteo,test_seo,test_frontend}.py` and `tests/fixtures/*.json`.
 Dependencies/docs: `requirements.txt`, this README, and `docs/00_PRD.md` … `docs/05_CONFIGURATION.md` (including QA reports).
