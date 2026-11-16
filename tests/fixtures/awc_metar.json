@@ -1,0 +1,78 @@
+[
+  {
+    "icaoId": "KSFO",
+    "receiptTime": "2026-11-16T06:01:00.000Z",
+    "obsTime": 1794808560,
+    "reportTime": "2026-11-16T06:00:00.000Z",
+    "temp": 12.8,
+    "dewp": 8.9,
+    "wdir": 240,
+    "wspd": 8,
+    "visib": 9,
+    "altim": 30.11,
+    "slp": 1019.8,
+    "qcField": 0,
+    "wxString": "-RA",
+    "presTend": 0,
+    "maxT": null,
+    "minT": null,
+    "precip": 0.0,
+    "pcp6hr": null,
+    "metarType": "METAR",
+    "rawOb": "KSFO 160600Z 24008KT 9SM -RA OVC011 13/09 A3011",
+    "lat": 37.62,
+    "lon": -122.38,
+    "elev": 13,
+    "name": "San Francisco Intl, CA, US",
+    "cover": "OVC",
+    "clouds": [
+      {
+        "cover": "SCT",
+        "base": 1100
+      },
+      {
+        "cover": "OVC",
+        "base": 6500
+      }
+    ],
+    "fltCat": "VFR"
+  },
+  {
+    "icaoId": "KJFK",
+    "receiptTime": "2026-11-16T06:02:00.000Z",
+    "obsTime": 1794808560,
+    "reportTime": "2026-11-16T06:00:00.000Z",
+    "temp": 9.4,
+    "dewp": 7.8,
+    "wdir": 90,
+    "wspd": 12,
+    "visib": 2,
+    "altim": 29.92,
+    "slp": 1013.2,
+    "qcField": 0,
+    "wxString": "TSRA",
+    "presTend": 0,
+    "maxT": null,
+    "minT": null,
+    "precip": 0.1,
+    "pcp6hr": null,
+    "metarType": "METAR",
+    "rawOb": "KJFK 160600Z 09012KT 2SM TSRA BKN008 OVC015 09/08 A2992",
+    "lat": 40.64,
+    "lon": -73.78,
+    "elev": 13,
+    "name": "John F Kennedy Intl, NY, US",
+    "cover": "BKN",
+    "clouds": [
+      {
+        "cover": "BKN",
+        "base": 800
+      },
+      {
+        "cover": "OVC",
+        "base": 1500
+      }
+    ],
+    "fltCat": "IFR"
+  }
+]

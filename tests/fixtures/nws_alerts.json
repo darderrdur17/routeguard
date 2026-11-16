@@ -1,0 +1,59 @@
+{
+  "@context": {
+    "@version": "1.1"
+  },
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "urn:oid:2.49.0.1.840.0.5a0c14f4cf0e4e46a4b1a4c3f9d7a4b2.001.2",
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.5a0c14f4cf0e4e46a4b1a4c3f9d7a4b2.001.2",
+        "id": "urn:oid:2.49.0.1.840.0.5a0c14f4cf0e4e46a4b1a4c3f9d7a4b2.001.2",
+        "areaDesc": "Ventura County Beaches; Santa Barbara County Beaches",
+        "geocode": {
+          "SAME": ["006111", "006083"],
+          "UGC": ["CAZ354", "CAZ353"]
+        },
+        "affectedZones": [
+          "https://api.weather.gov/zones/forecast/CAZ354",
+          "https://api.weather.gov/zones/forecast/CAZ353"
+        ],
+        "references": [],
+        "sent": "2026-11-16T06:10:00+00:00",
+        "effective": "2026-11-16T06:10:00+00:00",
+        "onset": "2026-11-16T06:10:00+00:00",
+        "expires": "2026-11-16T18:00:00-08:00",
+        "ends": null,
+        "status": "Actual",
+        "messageType": "Update",
+        "category": "Met",
+        "severity": "Minor",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "event": "High Surf Advisory",
+        "sender": "NWS Oxnard CA",
+        "senderName": "NWS Oxnard CA",
+        "headline": "High Surf Advisory issued November 16 at 10:10AM PST until 6:00PM PST Sunday by NWS Oxnard CA",
+        "description": "* WHAT...Large breaking waves of 7 to 10 feet expected.",
+        "instruction": "Swimming and other water activities are hazardous.",
+        "response": "Monitor",
+        "parameters": {
+          "AWIPSidentifier": ["WHZ34-KOXN-161810"],
+          "WMOidentifier": ["US51 KOXN 161810"]
+        },
+        "scope": "Public",
+        "code": "WHZ34",
+        "language": "en-US",
+        "web": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.5a0c14f4cf0e4e46a4b1a4c3f9d7a4b2.001.2",
+        "eventCode": {
+          "SAME": ["BH.S"],
+          "NOAAWeatherCodes": ["466"]
+        }
+      }
+    }
+  ],
+  "title": "Current watches, warnings, and advisories for 34.23 N, 119.20 W",
+  "updated": "2026-11-16T06:37:40+00:00"
+}

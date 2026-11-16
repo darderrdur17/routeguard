@@ -1,0 +1,110 @@
+[
+  {
+    "icaoId": "KSFO",
+    "dbPopTime": "2026-11-16T05:45:00.000Z",
+    "bulletinTime": "2026-11-16T05:44:00.000Z",
+    "issueTime": "2026-11-16T05:43:00.000Z",
+    "validTimeFrom": 1794808800,
+    "validTimeTo": 1794916800,
+    "rawTAF": "TAF AMD KSFO 160543Z 1606/1712 24008KT 6SM -SHRA BKN015 OVC030 TEMPO 1606/1612 2SM TSRA",
+    "mostRecent": 1,
+    "remarks": "AMD LIMITS",
+    "lat": 37.62,
+    "lon": -122.38,
+    "elev": 13,
+    "prior": "160430Z",
+    "name": "San Francisco Intl, CA, US",
+    "fcsts": [
+      {
+        "timeFrom": 1794808800,
+        "timeTo": 1794819600,
+        "timeBec": null,
+        "fcstChange": "FM",
+        "probability": null,
+        "wdir": 240,
+        "wspd": 8,
+        "wgst": null,
+        "visib": "6+",
+        "wxString": "-SHRA",
+        "clouds": [
+          {
+            "cover": "BKN",
+            "base": 1500,
+            "type": null
+          }
+        ],
+        "icgTurb": null,
+        "temp": null
+      },
+      {
+        "timeFrom": 1794819600,
+        "timeTo": 1794830400,
+        "timeBec": null,
+        "fcstChange": "TEMPO",
+        "probability": null,
+        "wdir": 240,
+        "wspd": 12,
+        "wgst": 38,
+        "visib": "2",
+        "wxString": "TSRA",
+        "clouds": [
+          {
+            "cover": "OVC",
+            "base": 800,
+            "type": null
+          }
+        ],
+        "icgTurb": null,
+        "temp": null
+      },
+      {
+        "timeFrom": 1794830400,
+        "timeTo": 1794841200,
+        "timeBec": null,
+        "fcstChange": "BECMG",
+        "probability": null,
+        "wdir": 260,
+        "wspd": 10,
+        "wgst": null,
+        "visib": "4",
+        "wxString": "RA",
+        "clouds": [],
+        "icgTurb": null,
+        "temp": null
+      }
+    ]
+  },
+  {
+    "icaoId": "KJFK",
+    "dbPopTime": "2026-11-16T05:46:00.000Z",
+    "bulletinTime": "2026-11-16T05:45:00.000Z",
+    "issueTime": "2026-11-16T05:44:00.000Z",
+    "validTimeFrom": 1794808800,
+    "validTimeTo": 1794916800,
+    "rawTAF": "TAF KJFK 160544Z 1606/1712 09010KT P6SM SCT020",
+    "mostRecent": 1,
+    "remarks": null,
+    "lat": 40.64,
+    "lon": -73.78,
+    "elev": 13,
+    "prior": "160430Z",
+    "name": "John F Kennedy Intl, NY, US",
+    "fcsts": [
+      {
+        "timeFrom": 1794808800,
+        "timeTo": 1794841200,
+        "timeBec": null,
+        "fcstChange": "FM",
+        "probability": null,
+        "wdir": 90,
+        "wspd": 10,
+        "wgst": null,
+        "visib": "P6SM",
+        "wxString": "",
+        "clouds": [],
+        "icgTurb": null,
+        "temp": null
+      }
+    ]
+  }
+]
