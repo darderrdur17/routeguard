@@ -886,7 +886,7 @@
       return;
     }
     state.map.fitBounds(bounds, {
-      padding: { top: 70, bottom: 110, left: 60, right: 210 },
+      padding: { top: 70, bottom: 110, left: 60, right: 80 },
       maxZoom: 8,
       duration: reducedMotion() ? 0 : 700,
     });

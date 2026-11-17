@@ -226,6 +226,17 @@ async def index(request: Request) -> HTMLResponse:
     return HTMLResponse(html.replace(SITE_URL_PLACEHOLDER, _site_url(request)))
 
 
+@app.head("/", include_in_schema=False)
+async def index_head(request: Request) -> Response:
+    """Answer HEAD for link checkers and crawlers with the GET response headers."""
+    response = await index(request)
+    return Response(
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        media_type="text/html",
+    )
+
+
 @app.get("/robots.txt", include_in_schema=False)
 async def robots(request: Request) -> PlainTextResponse:
     """Expose indexable public pages only; APIs and generated docs stay out."""

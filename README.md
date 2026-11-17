@@ -186,7 +186,7 @@ URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap
 1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
 real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
 enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
-Current result: **148 passed**.
+Current result: **161 passed**.
 
 ### Robustness hardening (post-audit)
 
