@@ -103,12 +103,17 @@ the visual centrepiece, not a decorative thumbnail.
   unavailable rather than inventing data. The separate **History** pill switches the
   workspace to the year-deep archive view; switching back restores the last assessment
   unchanged.
-- **History workspace:** a toolbar with origin/destination chips, start/end date
-  inputs and a Fetch button; one per-airport panel with a daily table and SVG
-  precipitation/wind bars; and a persistent "ERA5 reanalysis (model), not observations"
-  provenance line linking to the Archive API docs. Client-side bounds mirror the
-  backend (~6-day publication lag, 366-day maximum span) and the API remains the
-  authority. A partial upstream failure shows "no data" for that airport only.
+- **History workspace:** a toolbar with a labelled active-route chip pair (for
+  example JFK → SFO), From/To date inputs and a Fetch button; one per-airport panel
+  with a daily table and SVG precipitation/wind bars; and a persistent "ERA5
+  reanalysis (model), not observations" provenance line linking to the Archive API
+  docs. Both date inputs carry UTC-derived `min`/`max` bounds matching the backend's
+  cutoff, a persistent line states the exact cutoff and available range, and one
+  shared validator drives a live amber/red page warning for near-cutoff or invalid
+  dates before Fetch is pressed. Entering the view prefills a usable 30-day window
+  ending at the cutoff. Loading, empty, error and success states are all explicit:
+  a spinner names the route, a failed fetch clears stale panels and explains why,
+  and a partial upstream failure shows "no data" for that airport only.
 - **Motion:** staggered entrance, card hover/selection, map focus transitions,
   marker emphasis, filter/timeline transitions, drawer/panel motion and honest
   skeleton states are implemented. Refresh preserves the previous assessment and
@@ -140,7 +145,7 @@ URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap
 1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
 real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
 enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
-Current result: **136 passed**.
+Current result: **139 passed**.
 
 ### Robustness hardening (post-audit)
 

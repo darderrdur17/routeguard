@@ -497,16 +497,19 @@
               <p class="muted small">Daily model reanalysis for the active route — ERA5 reanalysis (model), not observations.</p>
             </div>
             <div class="history-controls">
-              <span id="history-origin" class="input-code">—</span>
-              <span class="history-route-arrow" aria-hidden="true">→</span>
-              <span id="history-destination" class="input-code">—</span>
+              <div class="history-route" aria-label="Active route for historical conditions">
+                <span class="field-label">Route</span>
+                <span id="history-origin" class="input-code">—</span>
+                <span class="history-route-arrow" aria-hidden="true">→</span>
+                <span id="history-destination" class="input-code">—</span>
+              </div>
               <label class="field-inline">
                 <span class="field-label">From</span>
-                <input id="history-start" type="date" aria-label="History start date" />
+                <input id="history-start" type="date" aria-label="History start date" aria-describedby="history-cutoff-note" />
               </label>
               <label class="field-inline">
                 <span class="field-label">To</span>
-                <input id="history-end" type="date" aria-label="History end date" />
+                <input id="history-end" type="date" aria-label="History end date" aria-describedby="history-cutoff-note" />
               </label>
               <button id="history-fetch" class="primary-button" type="button">
                 <span>Fetch history</span>
@@ -514,9 +517,19 @@
               </button>
             </div>
           </div>
+          <p id="history-cutoff-note" class="history-cutoff" role="status" hidden></p>
+          <p id="history-warning" class="history-warning" role="alert" hidden></p>
           <p id="history-error" class="error-message" role="alert" hidden></p>
+          <div id="history-loading" class="history-loading" role="status" aria-live="polite" hidden>
+            <span class="history-spinner" aria-hidden="true"></span>
+            <span id="history-loading-text">Loading daily ERA5 reanalysis…</span>
+          </div>
+          <div id="history-empty" class="history-empty" hidden>
+            <p class="history-empty-title">No historical conditions loaded</p>
+            <p id="history-empty-text" class="muted small">Choose a date range and select Fetch history to see daily ERA5 reanalysis for this route.</p>
+          </div>
           <p id="history-provenance" class="history-provenance" hidden></p>
-          <div class="history-panels">
+          <div class="history-panels" id="history-panels" hidden>
             <article class="card history-panel" id="history-origin-panel" aria-labelledby="history-origin-heading">
               <div class="card-head compact">
                 <div><p class="eyebrow">Origin · daily archive</p><h3 id="history-origin-heading">Origin conditions</h3></div>

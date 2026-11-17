@@ -208,3 +208,22 @@ the executed verification, including the dispositions of every audit finding.
 | Sandbox networking note | Pass | A detached shell process could not reach the egress proxy (`Connection refused os error 61`). Foreground `httpx` and the managed server both returned HTTP 200 from the archive, so this was an environment artifact, not an application defect. Live verification used the managed server and in-process `TestClient`. |
 | Browser regression | Pass | 28 checks in Chromium covering empty state, no horizontal overflow, forward assessment, Analyst/Overview switch, command palette open/Escape, glossary toast, context entry into History, client validation, provenance, tables, SVG bars, view restoration and zero page errors. Two initial harness failures were corrected: `[data-view=history]` also matched `<body>`, and Inspect is intentionally disabled until evidence is selected (21 evidence cards → drawer opens and closes correctly). |
 | Cross-engine | Pass | WebKit/Safari engine smoke test of the History flow: 11 rows, 22 bars, no overflow, no page errors. |
+
+---
+
+## Addendum — History flow polish (17 Nov 2026, final)
+
+A user-reported review of the active-route History flow (JFK → SFO, "Fetch history")
+identified integration gaps that were functional but not yet coherent: the date
+pickers had no bounds, the archive cutoff was explained only after a failed request,
+opening History left both dates empty, and loading/empty states were implicit. All
+fixed and re-verified.
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| UTC cutoff parity with backend | Pass | `archiveMaxEndDate()` and `archiveMinStartDate()` now derive the UTC calendar date the same way `HistoryService._validate_dates` does. On 2026-11-17 the picker advertised cutoff **2026-11-11** and earliest **2025-11-11**; both inputs carry those exact `max`/`min` values in Chromium and WebKit. A browser in another timezone can no longer request a day the API rejects. |
+| Proactive cutoff warnings | Pass | Persistent line: "ERA5 archive cutoff: 2026-11-11 — reanalysis is published ~6 days behind today. Available dates: 2025-11-11 through 2026-11-11." Selecting 2026-11-11 shows an amber "latest available archive day… may still be revised" warning. Selecting 2026-11-16 shows a red "beyond the ERA5 archive cutoff (2026-11-11)… choose 2026-11-11 or earlier", marks both inputs `aria-invalid`, and blocks the request before any network call. Inverted ranges and >366-day spans are warned live. |
+| Active-route carry-over | Pass | Clicking "View historical conditions" after a JFK → SFO assessment prefills labelled route chips `JFK → SFO` with accessible titles, and a usable 30-day window ending at the cutoff (2026-10-13 → 2026-11-11). No manual date entry is needed to get a first result. |
+| Loading / empty / error / success | Pass | 32 targeted browser checks: empty state and hidden panels on entry; "Loading daily ERA5 reanalysis for JFK → SFO…" spinner with disabled Fetch while the request is delayed; success clears loading/empty, reveals panels, provenance and 11 real rows; a mocked 502 clears panels, surfaces `UPSTREAM_UNAVAILABLE` and explains "No history loaded." in the empty state. No page errors. |
+| Cross-engine regression | Pass | 42 checks across Chromium and WebKit: initial empty state, no horizontal overflow, retrospective assessment, evidence selection and drawer, "Show on map", command palette, glossary toast, History entry, cutoff warning, successful fetch and restoration of the assessment on switching back. All passed with zero page errors. |
+| Static contract + suite | Pass | Three new tests in `tests/test_frontend.py` cover UTC bounds, the shared validator, explicit state transitions and route/default prefills. `python3 -m pytest -q` → **139 passed, 1 warning**; `node --check static/app.js` clean. |

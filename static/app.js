@@ -23,6 +23,7 @@
     lastRouteKey: "",
     busy: false,
     historyBusy: false,
+    historyLoaded: false,
     mode: "overview",
     map: null,
     mapReady: false,
@@ -125,7 +126,14 @@
     historyStart: document.getElementById("history-start"),
     historyEnd: document.getElementById("history-end"),
     historyFetch: document.getElementById("history-fetch"),
+    historyCutoffNote: document.getElementById("history-cutoff-note"),
+    historyWarning: document.getElementById("history-warning"),
     historyError: document.getElementById("history-error"),
+    historyLoading: document.getElementById("history-loading"),
+    historyLoadingText: document.getElementById("history-loading-text"),
+    historyEmpty: document.getElementById("history-empty"),
+    historyEmptyText: document.getElementById("history-empty-text"),
+    historyPanels: document.getElementById("history-panels"),
     historyProvenance: document.getElementById("history-provenance"),
     historyOpen: document.getElementById("history-open"),
     historyOriginPanel: document.getElementById("history-origin-panel"),
@@ -411,10 +419,15 @@
   function applyView(view) {
     if (view === "history") {
       // History is a separate workspace section, not an evidence filter: the
-      // body attribute drives the CSS and the pill, and syncWorkspace and
-      // state.current are left untouched.
+      // body attribute drives the CSS and the assessment state is untouched.
       document.body.setAttribute("data-view", "history");
+      applyHistoryBounds();
       prefillHistoryRoute();
+      prefillHistoryDates();
+      show(dom.historyError, false);
+      showHistoryLoading(false);
+      if (!state.historyLoaded) showHistoryEmpty();
+      refreshHistoryValidation(false);
       renderViewPills();
       show(dom.historySection, true);
       return;
@@ -1364,6 +1377,7 @@
 
   var HISTORY_LAG_DAYS = 6;
   var HISTORY_MAX_SPAN_DAYS = 366;
+  var HISTORY_MAX_LOOKBACK_DAYS = 365;
   var HISTORY_PRECIP_MODERATE_MM = 10;
   var HISTORY_PRECIP_STRONG_MM = 25;
   var HISTORY_WIND_MODERATE_KMH = 30;
@@ -1377,14 +1391,35 @@
     ].join("-");
   }
 
-  function archiveMaxEndDate() {
+  // The backend derives the ERA5 cutoff from UTC "today", not the browser's
+  // timezone. Compute the same UTC calendar date here so a picker in another
+  // timezone can never offer a day the API will reject as beyond the archive.
+  function isoUtcDate(value) {
+    return [
+      value.getUTCFullYear(),
+      String(value.getUTCMonth() + 1).padStart(2, "0"),
+      String(value.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+  }
+
+  function utcDateMinusDays(days) {
     var now = new Date();
-    return isoLocalDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - HISTORY_LAG_DAYS));
+    var value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    value.setUTCDate(value.getUTCDate() - days);
+    return isoUtcDate(value);
+  }
+
+  function archiveMaxEndDate() {
+    return utcDateMinusDays(HISTORY_LAG_DAYS);
+  }
+
+  function archiveMinStartDate() {
+    return utcDateMinusDays(HISTORY_LAG_DAYS + HISTORY_MAX_LOOKBACK_DAYS);
   }
 
   function parseIsoDate(text) {
     var parts = String(text).split("-");
-    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
   }
 
   function historySpanDays(startText, endText) {
@@ -1394,8 +1429,19 @@
 
   function prefillHistoryRoute() {
     var route = state.current && state.current.route ? state.current.route : {};
-    dom.historyOrigin.textContent = route.origin_iata || historyCodeFromInput(dom.origin.value);
-    dom.historyDestination.textContent = route.destination_iata || historyCodeFromInput(dom.destination.value);
+    var origin = route.origin_iata || historyCodeFromInput(dom.origin.value);
+    var destination = route.destination_iata || historyCodeFromInput(dom.destination.value);
+    dom.historyOrigin.textContent = origin;
+    dom.historyDestination.textContent = destination;
+    dom.historyOrigin.setAttribute("title", "Active route origin: " + origin);
+    dom.historyDestination.setAttribute("title", "Active route destination: " + destination);
+  }
+
+  function prefillHistoryDates() {
+    if (dom.historyStart.value && dom.historyEnd.value) return;
+    // A usable default window: the 30 days ending at the archive cutoff.
+    dom.historyStart.value = utcDateMinusDays(HISTORY_LAG_DAYS + 29);
+    dom.historyEnd.value = archiveMaxEndDate();
   }
 
   function historyCodeFromInput(value) {
@@ -1405,45 +1451,148 @@
     return text ? text.toUpperCase() : "—";
   }
 
-  function showHistoryError(code, message) {
-    dom.historyError.textContent = code + ": " + message;
-    show(dom.historyError, true);
+  function applyHistoryBounds() {
+    var cutoff = archiveMaxEndDate();
+    var earliest = archiveMinStartDate();
+    dom.historyStart.max = cutoff;
+    dom.historyEnd.max = cutoff;
+    dom.historyStart.min = earliest;
+    dom.historyEnd.min = earliest;
+    dom.historyCutoffNote.textContent =
+      "ERA5 archive cutoff: " + cutoff + " — reanalysis is published ~" +
+      HISTORY_LAG_DAYS + " days behind today. Available dates: " +
+      earliest + " through " + cutoff + ".";
+    show(dom.historyCutoffNote, true);
   }
 
-  function fetchHistory() {
-    if (state.historyBusy) return;
-    show(dom.historyError, false);
+  function showHistoryWarning(message, isError) {
+    if (!message) {
+      show(dom.historyWarning, false);
+      dom.historyWarning.textContent = "";
+      return;
+    }
+    dom.historyWarning.textContent = message;
+    dom.historyWarning.classList.toggle("is-error", !!isError);
+    show(dom.historyWarning, true);
+  }
+
+  // One validator drives the live page warning and the Fetch action, so the
+  // browser can never allow a request the backend would reject for dates.
+  function validateHistoryRange() {
     var origin = dom.historyOrigin.textContent.trim();
     var destination = dom.historyDestination.textContent.trim();
     var start = dom.historyStart.value;
     var end = dom.historyEnd.value;
     if (!origin || origin === "—" || !destination || destination === "—") {
-      showHistoryError("INVALID_ROUTE", "Assess or enter a route above before fetching history.");
-      return;
+      return { ok: false, code: "INVALID_ROUTE", message: "Assess or enter a route above before fetching history." };
     }
     if (!start || !end) {
-      showHistoryError("INVALID_DATE", "Pick both a start and an end date for the history range.");
-      return;
+      return { ok: false, soft: true, code: "INVALID_DATE", message: "Pick both a start and an end date for the history range." };
     }
-    // Client-side bounds mirror the backend: the archive ends about 6 days
-    // behind today and spans at most 366 days. The API remains the authority.
+    var cutoff = archiveMaxEndDate();
+    var earliest = archiveMinStartDate();
     if (start > end) {
-      showHistoryError("INVALID_DATE", "start_date must be on or before end_date.");
-      return;
+      return { ok: false, code: "INVALID_DATE", message: "The From date must be on or before the To date." };
     }
-    var bound = archiveMaxEndDate();
-    if (end > bound) {
-      showHistoryError("INVALID_DATE", "end_date must be on or before " + bound +
-        " (ERA5 archive publishes ~" + HISTORY_LAG_DAYS + " days behind today).");
-      return;
+    if (end > cutoff) {
+      return {
+        ok: false,
+        code: "INVALID_DATE",
+        message: end + " is beyond the ERA5 archive cutoff (" + cutoff +
+          "). Publication lags ~" + HISTORY_LAG_DAYS + " days — choose " + cutoff + " or earlier.",
+      };
+    }
+    if (start < earliest) {
+      return {
+        ok: false,
+        code: "INVALID_DATE",
+        message: "History reaches " + HISTORY_MAX_SPAN_DAYS + " days back from the cutoff; " +
+          earliest + " is the earliest available day.",
+      };
     }
     if (historySpanDays(start, end) > HISTORY_MAX_SPAN_DAYS) {
-      showHistoryError("INVALID_DATE", "History ranges span at most 366 days.");
+      return {
+        ok: false,
+        code: "INVALID_DATE",
+        message: "History ranges span at most " + HISTORY_MAX_SPAN_DAYS + " days.",
+      };
+    }
+    return {
+      ok: true,
+      warning: end === cutoff
+        ? end + " is the latest available archive day. ERA5 values this close to publication may still be revised."
+        : "",
+    };
+  }
+
+  function refreshHistoryValidation(includeMissing) {
+    var result = validateHistoryRange();
+    if (result.ok || !result.code || result.code !== "INVALID_DATE" || result.soft) {
+      dom.historyStart.removeAttribute("aria-invalid");
+      dom.historyEnd.removeAttribute("aria-invalid");
+    } else {
+      dom.historyStart.setAttribute("aria-invalid", "true");
+      dom.historyEnd.setAttribute("aria-invalid", "true");
+    }
+    if (result.ok) {
+      showHistoryWarning(result.warning, false);
+    } else if (!result.soft || includeMissing) {
+      showHistoryWarning(result.message, true);
+    } else {
+      showHistoryWarning("", false);
+    }
+    return result;
+  }
+
+  function showHistoryError(code, message) {
+    dom.historyError.textContent = code + ": " + message;
+    show(dom.historyError, true);
+  }
+
+  function showHistoryLoading(active) {
+    if (active) {
+      dom.historyLoadingText.textContent = "Loading daily ERA5 reanalysis for " +
+        dom.historyOrigin.textContent.trim() + " → " +
+        dom.historyDestination.textContent.trim() + "…";
+    }
+    show(dom.historyLoading, active);
+    dom.historySection.setAttribute("aria-busy", String(active));
+  }
+
+  function showHistoryEmpty(message) {
+    dom.historyEmptyText.textContent = message ||
+      "Choose a date range and select Fetch history to see daily ERA5 reanalysis for this route.";
+    show(dom.historyEmpty, true);
+  }
+
+  function clearHistoryResult() {
+    clear(dom.historyProvenance);
+    show(dom.historyProvenance, false);
+    show(dom.historyPanels, false);
+    state.historyLoaded = false;
+  }
+
+  function fetchHistory() {
+    if (state.historyBusy) return;
+    show(dom.historyError, false);
+    var result = refreshHistoryValidation(true);
+    if (!result.ok) {
+      showHistoryError(result.code, result.message);
+      showHistoryLoading(false);
+      showHistoryEmpty("Fix the highlighted range, then select Fetch history.");
       return;
     }
     state.historyBusy = true;
     dom.historyFetch.disabled = true;
     dom.historyFetch.setAttribute("aria-busy", "true");
+    showHistoryLoading(true);
+    show(dom.historyEmpty, false);
+    show(dom.historyProvenance, false);
+    show(dom.historyPanels, false);
+    var origin = dom.historyOrigin.textContent.trim();
+    var destination = dom.historyDestination.textContent.trim();
+    var start = dom.historyStart.value;
+    var end = dom.historyEnd.value;
     fetch("/api/history?origin=" + encodeURIComponent(origin) +
         "&destination=" + encodeURIComponent(destination) +
         "&start_date=" + encodeURIComponent(start) +
@@ -1467,11 +1616,14 @@
           envelope && envelope.code ? envelope.code : "REQUEST_FAILED",
           envelope && envelope.message ? envelope.message : "The history could not be retrieved."
         );
+        clearHistoryResult();
+        showHistoryEmpty("No history loaded. Fix the request and select Fetch history again.");
       })
       .finally(function () {
         state.historyBusy = false;
         dom.historyFetch.disabled = false;
         dom.historyFetch.removeAttribute("aria-busy");
+        showHistoryLoading(false);
       });
   }
 
@@ -1480,6 +1632,10 @@
     var airports = (data && data.airports) || {};
     renderHistoryAirport("origin", airports.origin);
     renderHistoryAirport("destination", airports.destination);
+    state.historyLoaded = true;
+    showHistoryLoading(false);
+    show(dom.historyEmpty, false);
+    show(dom.historyPanels, true);
   }
 
   function renderHistoryProvenance(provenance) {
@@ -1840,6 +1996,9 @@
 
   dom.date.value = tomorrowLocal();
   dom.date.min = originAwareMinDate();
+  applyHistoryBounds();
+  prefillHistoryDates();
+  showHistoryEmpty();
   renderMode();
   renderViewPills();
 
@@ -1881,6 +2040,9 @@
 
   dom.historyOpen.addEventListener("click", function () { applyView("history"); });
   dom.historyFetch.addEventListener("click", fetchHistory);
+  [dom.historyStart, dom.historyEnd].forEach(function (input) {
+    input.addEventListener("change", function () { refreshHistoryValidation(false); });
+  });
 
   [dom.layerAirports, dom.layerRoutes, dom.layerWeather, dom.layerAviation].forEach(function (input) {
     input.addEventListener("change", function () {

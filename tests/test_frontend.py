@@ -242,3 +242,70 @@ def test_show_on_map_closes_the_drawer_before_focusing_the_map() -> None:
     drawer_block = APP[APP.find('dom.drawerMap.addEventListener'):APP.find("dom.paletteOpen.addEventListener")]
     assert "closeDrawer();" in drawer_block
     assert drawer_block.index("closeDrawer();") < drawer_block.index("selectEvidence(")
+
+
+def test_history_date_bounds_follow_the_utc_archive_cutoff() -> None:
+    """The picker mirrors the backend's UTC cutoff, so no requested day can 422."""
+    for element_id in (
+        "history-cutoff-note", "history-warning", "history-loading",
+        "history-loading-text", "history-empty", "history-empty-text",
+        "history-panels",
+    ):
+        assert f'id="{element_id}"' in INDEX
+    assert "function isoUtcDate(" in APP
+    assert "function utcDateMinusDays(" in APP
+    assert "function archiveMinStartDate(" in APP
+    # Both date inputs are bounded to the same window the API enforces.
+    assert "dom.historyStart.max = cutoff;" in APP
+    assert "dom.historyEnd.max = cutoff;" in APP
+    assert "dom.historyStart.min = earliest;" in APP
+    assert "dom.historyEnd.min = earliest;" in APP
+    assert "getUTCDate()" in APP
+    # One validator drives both the live warning and the Fetch action.
+    assert "function validateHistoryRange()" in APP
+    assert "function refreshHistoryValidation(" in APP
+    assert "refreshHistoryValidation(true);" in APP
+    assert "refreshHistoryValidation(false)" in APP
+    assert 'input.addEventListener("change", function () { refreshHistoryValidation(false); });' in APP
+    assert "aria-invalid" in APP
+    assert "is-error" in APP
+    assert "is the latest available archive day" in APP
+    assert "beyond the ERA5 archive cutoff" in APP
+    assert '.history-warning.is-error' in STYLES
+    assert "aria-describedby=\"history-cutoff-note\"" in INDEX
+
+
+def test_history_loading_empty_error_and_success_states_are_explicit() -> None:
+    """Every history transition has a visible state; no blank panels are possible."""
+    assert "historyLoaded: false" in APP
+    assert "function showHistoryLoading(" in APP
+    assert "function showHistoryEmpty(" in APP
+    assert "function clearHistoryResult()" in APP
+    # Entering the view shows the empty state and clears any stale loading flag.
+    assert "if (!state.historyLoaded) showHistoryEmpty();" in APP
+    assert "showHistoryLoading(false);" in APP
+    # Fetch hides empty/panels and shows loading before the network call.
+    assert "showHistoryLoading(true);" in APP
+    assert "show(dom.historyEmpty, false);" in APP
+    assert "show(dom.historyPanels, false);" in APP
+    # Success reveals the result; failure clears it and explains why.
+    assert "state.historyLoaded = true;" in APP
+    assert "show(dom.historyPanels, true);" in APP
+    assert "clearHistoryResult();" in APP
+    assert "No history loaded." in APP
+    assert "Loading daily ERA5 reanalysis for " in APP
+    assert ".history-loading" in STYLES
+    assert ".history-empty" in STYLES
+
+
+def test_history_route_and_default_range_are_prefilled_for_the_active_route() -> None:
+    """Opening History from JFK to SFO carries the route and a usable date range."""
+    history_view = APP[APP.find('if (view === "history")'):APP.find('document.body.removeAttribute("data-view")')]
+    assert "prefillHistoryRoute();" in history_view
+    assert "prefillHistoryDates();" in history_view
+    assert "applyHistoryBounds();" in history_view
+    assert "function prefillHistoryDates()" in APP
+    assert "utcDateMinusDays(HISTORY_LAG_DAYS + 29)" in APP
+    assert 'class="history-route"' in INDEX
+    assert "Active route origin" in APP
+    assert "Active route destination" in APP

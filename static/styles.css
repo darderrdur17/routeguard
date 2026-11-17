@@ -677,10 +677,24 @@ body[data-view="history"] #history-section { display: block; }
 .history-section { margin-top: 18px; }
 .history-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .history-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.history-route { display: flex; align-items: center; gap: 6px; padding-right: 10px; border-right: 1px solid var(--line); }
 .history-route-arrow { color: var(--muted); font-size: 13px; }
 .history-controls .input-code { padding: 7px 9px; font-size: 12px; }
 .field-inline { display: flex; flex-direction: column; gap: 3px; }
 .field-inline input { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--ink); font-size: 12px; }
+.field-inline input:focus-visible { outline: 2px solid var(--coral); outline-offset: 1px; }
+.field-inline input[aria-invalid="true"] { border-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--card)); }
+.history-cutoff, .history-warning { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; font-size: 11.5px; line-height: 1.45; }
+.history-cutoff { border: 1px solid var(--line); background: var(--card-soft); color: var(--ink-2); }
+.history-cutoff strong { color: var(--ink); font-family: var(--mono); }
+.history-warning { border: 1px solid var(--amber); background: color-mix(in srgb, var(--amber) 10%, var(--card)); color: var(--ink); }
+.history-warning.is-error { border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--card)); }
+.history-loading { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-soft); color: var(--ink-2); font-size: 12px; }
+.history-spinner { width: 14px; height: 14px; border: 2px solid var(--line-strong); border-top-color: var(--coral); border-radius: 50%; animation: history-spin 0.8s linear infinite; }
+@keyframes history-spin { to { transform: rotate(360deg); } }
+.history-empty { margin: 0 0 12px; padding: 18px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--card-soft); text-align: center; }
+.history-empty-title { margin: 0 0 4px; color: var(--ink); font-size: 13px; font-weight: 600; }
+.history-empty .muted { margin: 0; }
 .history-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .history-panel { display: flex; flex-direction: column; gap: 10px; overflow-x: auto; }
 .history-provenance { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-soft); font-size: 11px; color: var(--ink-2); }
