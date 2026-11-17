@@ -48,6 +48,40 @@ app = FastAPI(
 app.add_middleware(CorrelationIdMiddleware)
 app.mount("/static", CanonicalStaticFiles(directory=str(STATIC_DIR)), name="static")
 
+# Baseline hardening headers for every response. The CSP is tuned to the real
+# frontend: an inline ES-module bootstrap imports MapLibre GL JS from unpkg,
+# Geist fonts load from Google, and the map fetches OpenFreeMap vector tiles.
+# 'unsafe-inline' on script/style is required because the inline module and
+# MapLibre's injected styles cannot be nonced without editing the static HTML.
+SECURITY_HEADERS: dict[str, str] = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https://tiles.openfreemap.org https://*.openfreemap.org; "
+        "connect-src 'self' https://unpkg.com https://tiles.openfreemap.org https://*.openfreemap.org; "
+        "worker-src 'self' blob: https://unpkg.com; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self'"
+    ),
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next: Any) -> Response:
+    """Attach the baseline security headers without altering request IDs."""
+    response = await call_next(request)
+    for name, value in SECURITY_HEADERS.items():
+        response.headers[name] = value
+    return response
+
+
 _service = AssessmentService()
 _history_service = HistoryService()
 

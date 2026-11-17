@@ -188,6 +188,29 @@ def test_awc_both_204_reports_real_status_and_no_evidence() -> None:
     assert "no current TAF" in result.status.note
 
 
+def test_awc_200_json_null_is_degraded_not_ok() -> None:
+    """A 200 with a JSON null body is malformed evidence, not healthy no-data."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="null",
+            headers={"content-type": "application/json"},
+            request=request,
+        )
+
+    async def scenario() -> Any:
+        async with make_client(handler, "AWC") as client:
+            return await AWCAdapter(client).fetch(ORIGIN, DESTINATION, WINDOW)
+
+    result = run(scenario())
+    assert result.status.status in {"DEGRADED", "FAILED"}
+    assert result.status.status != "OK"
+    assert result.status.note
+    assert "Malformed" in result.status.note
+    assert result.payloads == []
+
+
 def test_awc_partial_failure_is_degraded(
     awc_metar: list[dict[str, Any]], awc_taf: list[dict[str, Any]]
 ) -> None:

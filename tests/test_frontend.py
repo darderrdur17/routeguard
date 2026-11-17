@@ -147,7 +147,7 @@ def test_workspace_visibility_cannot_go_blank() -> None:
     """One synchronizer owns results/skeleton/empty so the canvas never blanks."""
     assert "function syncWorkspace()" in APP
     assert "show(dom.results, hasCurrent)" in APP
-    assert "show(dom.empty, !hasCurrent && !busy)" in APP
+    assert "show(dom.empty, !hasCurrent && !busy && !historyView)" in APP
     assert "show(dom.loadingSkeleton, busy && !hasCurrent)" in APP
     # setBusy, render and the error path all delegate to the synchronizer.
     assert APP.count("syncWorkspace()") >= 4
@@ -343,3 +343,81 @@ def test_maplibre_injected_attribution_links_are_hardened() -> None:
     """Library-injected external links also get noopener noreferrer."""
     assert ".maplibregl-ctrl-attrib a[target='_blank']" in APP
     assert 'link.setAttribute("rel", "noopener noreferrer");' in APP
+
+
+def test_loading_skeleton_section_closes_correctly() -> None:
+    """A stray </div> here used to reparent #results outside the app shell."""
+    start = INDEX.index('<section id="loading-skeleton"')
+    end = INDEX.index('id="loading-announcement"')
+    assert "</section>" in INDEX[start:end]
+    assert "        </div>\n        <div id=\"loading-announcement\"" not in INDEX
+
+
+def test_verdict_strip_surfaces_classification_and_action() -> None:
+    """The answer is visible above the map without scrolling."""
+    for node_id in (
+        "verdict-strip", "strip-classification", "strip-confidence",
+        "strip-evidence-count", "strip-action",
+    ):
+        assert f'id="{node_id}"' in INDEX
+    stripped = INDEX[INDEX.index('id="verdict-strip"'):INDEX.index('class="intelligence-layout"')]
+    assert stripped.index('id="verdict-strip"') < stripped.index('id="strip-action"')
+    assert "function renderVerdictStrip(data)" in APP
+    assert "renderVerdictStrip(data);" in APP
+    assert 'first.text || first.action || NO_COVERAGE_ACTION' in APP
+    assert "show(dom.verdictStrip, hasCurrent);" in APP
+    assert "height: 500px" in STYLES
+
+
+def test_analyst_mode_changes_actual_content() -> None:
+    """Both mode-copy paragraphs and per-evidence technical rows exist."""
+    assert 'data-mode-copy="overview"' in INDEX
+    assert 'data-mode-copy="analyst"' in INDEX
+    assert 'querySelectorAll("[data-mode-copy]")' in APP
+    assert 'node.getAttribute("data-mode-copy") === state.mode' in APP
+    assert 'analyst-only evidence-analyst' in APP
+    assert "item.raw_excerpt" in APP and "item.reliability" in APP
+    assert "item.source_url" in APP
+
+
+def test_history_validation_error_is_not_shown_for_soft_range() -> None:
+    """Only the amber warning is shown; showHistoryError stays for API failures."""
+    body = APP[APP.index("function fetchHistory()"):APP.index("function renderHistory(")]
+    assert "showHistoryError(result.code, result.message)" not in body
+    assert "showHistoryError(" in body
+
+
+def test_dialog_focus_uses_a_stack() -> None:
+    """Palette-over-drawer restores focus to the correct opener."""
+    assert "var dialogFocusStack = []" in APP
+    assert "dialogFocusStack.push(" in APP
+    assert "var frame = dialogFocusStack.pop();" in APP
+    assert "var dialogFocus = { element: null" not in APP
+
+
+def test_provider_latency_handles_null() -> None:
+    assert 'status.latency_ms === null ? "—" : status.latency_ms' in APP
+
+
+def test_fallback_markers_carry_evidence_id_and_selection() -> None:
+    assert 'document.querySelectorAll(".rg-marker, .map-marker")' in APP
+    assert "if (evidenceId) group.dataset.evidenceId = evidenceId;" in APP
+    assert "isWeather(item) ? \"weather\" : \"aviation\", item.id" in APP
+    assert "if (state.mapReady && renderMapLibre(data)) return;" in APP
+
+
+def test_history_view_hides_empty_state() -> None:
+    assert 'var historyView = document.body.getAttribute("data-view") === "history";' in APP
+    assert "!hasCurrent && !busy && !historyView" in APP
+    assert "syncWorkspace();" in APP[APP.index("function applyView("):APP.index("function renderMode(")]
+
+
+def test_retrospective_demo_button_exists() -> None:
+    """A real, deterministic retrospective demo is one click away."""
+    assert 'id="demo-yesterday"' in INDEX
+    assert "Try yesterday (retrospective demo)" in INDEX
+    assert "dom.demoYesterday" in APP
+    assert "function demoYesterdayDate()" in APP
+    assert "Intl.DateTimeFormat" in APP
+    assert 'dom.origin.value = "New York"' in APP
+    assert 'dom.destination.value = "San Francisco"' in APP

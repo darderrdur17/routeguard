@@ -43,6 +43,7 @@
     destinationCode: document.getElementById("destination-code"),
     datalist: document.getElementById("airport-options"),
     submit: document.getElementById("submit-button"),
+    demoYesterday: document.getElementById("demo-yesterday"),
     swap: document.getElementById("swap-button"),
     refresh: document.getElementById("refresh-button"),
     error: document.getElementById("form-error"),
@@ -60,6 +61,11 @@
     modeOverview: document.getElementById("mode-overview"),
     modeAnalyst: document.getElementById("mode-analyst"),
     viewBar: document.querySelector(".view-bar"),
+    verdictStrip: document.getElementById("verdict-strip"),
+    stripClassification: document.getElementById("strip-classification"),
+    stripConfidence: document.getElementById("strip-confidence"),
+    stripEvidenceCount: document.getElementById("strip-evidence-count"),
+    stripAction: document.getElementById("strip-action"),
     classification: document.getElementById("classification"),
     classificationNote: document.getElementById("classification-note"),
     verdictCore: document.getElementById("verdict-core"),
@@ -275,6 +281,34 @@
     return retrospectiveMinDate();
   }
 
+  // Demo helper: yesterday in the origin airport's IANA timezone when the
+  // airport (or an already assessed route) exposes one, else browser-local.
+  function demoYesterdayDate() {
+    var airport = findAirport(dom.origin.value);
+    var route = state.current && state.current.route ? state.current.route : null;
+    var timeZone = (airport && (airport.timezone || airport.time_zone)) ||
+      (route && route.origin_timezone) || null;
+    var today = null;
+    if (timeZone && window.Intl && Intl.DateTimeFormat) {
+      try {
+        var parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+        }).formatToParts(new Date());
+        var values = {};
+        parts.forEach(function (part) { values[part.type] = part.value; });
+        today = new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
+      } catch (zoneError) {
+        today = null;
+      }
+    }
+    if (!today) {
+      var now = new Date();
+      today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+    var yesterday = isoMinusDays(today, 1);
+    return yesterday < retrospectiveMinDate() ? retrospectiveMinDate() : yesterday;
+  }
+
   function toast(message) {
     dom.toast.textContent = message;
     show(dom.toast, true);
@@ -430,6 +464,7 @@
       refreshHistoryValidation(false);
       renderViewPills();
       show(dom.historySection, true);
+      syncWorkspace();
       return;
     }
     document.body.removeAttribute("data-view");
@@ -440,6 +475,7 @@
     state.activeAirport = null;
     renderAirportBlocks();
     renderViewPills();
+    syncWorkspace();
     if (!state.current) return;
     renderEvidence(state.current);
     renderSignalCards(state.current);
@@ -453,6 +489,9 @@
     dom.modeAnalyst.classList.toggle("is-active", state.mode === "analyst");
     dom.modeOverview.setAttribute("aria-pressed", String(state.mode === "overview"));
     dom.modeAnalyst.setAttribute("aria-pressed", String(state.mode === "analyst"));
+    document.querySelectorAll("[data-mode-copy]").forEach(function (node) {
+      show(node, node.getAttribute("data-mode-copy") === state.mode);
+    });
   }
 
   /* ---------- summary and cards ---------- */
@@ -597,6 +636,21 @@
     });
   }
 
+  var NO_COVERAGE_ACTION = "No conclusive coverage for this date; verify with the relevant national aviation authority before travel.";
+
+  function renderVerdictStrip(data) {
+    if (!dom.verdictStrip) return;
+    if (!data) { show(dom.verdictStrip, false); return; }
+    var recommendations = data.recommendations || [];
+    var first = recommendations[0] || {};
+    var action = first.text || first.action || NO_COVERAGE_ACTION;
+    dom.stripClassification.textContent = data.classification || "—";
+    dom.stripConfidence.textContent = data.confidence || "—";
+    dom.stripEvidenceCount.textContent = String((data.evidence || []).length);
+    dom.stripAction.textContent = truncate(action, 180);
+    show(dom.verdictStrip, true);
+  }
+
   function renderRules(data) {
     clear(dom.rules);
     var rules = data.triggered_rules || [];
@@ -629,7 +683,7 @@
       heading.appendChild(el("span", "status-pill " + String(status.status).toLowerCase(), status.status));
       card.appendChild(heading);
       card.appendChild(el("p", "", "HTTP " + (status.http_status === null ? "—" : status.http_status) +
-        " · " + status.latency_ms + " ms · " + status.evidence_count + " item(s)"));
+        " · " + (status.latency_ms === null ? "—" : status.latency_ms) + " ms · " + status.evidence_count + " item(s)"));
       if (status.note) card.appendChild(el("p", "", status.note));
       if (status.error) card.appendChild(el("p", "", "Error: " + status.error));
       var link = el("a", "", "Authoritative source ↗");
@@ -925,10 +979,11 @@
     applyFallbackView();
   }
 
-  function fallbackMarker(label, point, fill, onClick, extraClass) {
+  function fallbackMarker(label, point, fill, onClick, extraClass, evidenceId) {
     var group = svg("g", {
       class: "map-marker " + (extraClass || ""), tabindex: "0", role: "button", "aria-label": label,
     });
+    if (evidenceId) group.dataset.evidenceId = evidenceId;
     group.appendChild(svg("circle", { cx: point.x, cy: point.y, r: 13, fill: fill, opacity: 0.15 }));
     group.appendChild(svg("circle", { cx: point.x, cy: point.y, r: 9, fill: "transparent", "pointer-events": "all" }));
     group.appendChild(svg("circle", { cx: point.x, cy: point.y, r: 5.5, fill: fill, stroke: "#ffffff", "stroke-width": 1.8 }));
@@ -990,7 +1045,7 @@
       var color = isWeather(item) ? "#d97706" : "#3b82f6";
       fallbackMarker(truncate(item.signal, 24), point, color, function () {
         selectEvidence(item.id, { focusMap: false });
-      }, isWeather(item) ? "weather" : "aviation");
+      }, isWeather(item) ? "weather" : "aviation", item.id);
     });
 
     if (dom.layerAirports.checked) {
@@ -1015,7 +1070,7 @@
   }
 
   function renderMap(data) {
-    if (renderMapLibre(data)) return;
+    if (state.mapReady && renderMapLibre(data)) return;
     renderFallbackMap(data);
   }
 
@@ -1061,7 +1116,7 @@
   }
 
   function updateMarkerSelection(id) {
-    document.querySelectorAll(".rg-marker").forEach(function (node) {
+    document.querySelectorAll(".rg-marker, .map-marker").forEach(function (node) {
       node.classList.toggle("is-selected", node.getAttribute("data-evidence-id") === id);
     });
     // MapLibre markers are recreated on each map render, so refresh them once.
@@ -1279,6 +1334,12 @@
       foot.appendChild(el("span", "", item.temporal_overlap));
       if (item.location_label) foot.appendChild(el("span", "", item.location_label));
       card.appendChild(foot);
+      var analyst = el("div", "analyst-only evidence-analyst");
+      analyst.appendChild(el("div", "analyst-line", "Excerpt · " + truncate(item.raw_excerpt, 120)));
+      analyst.appendChild(el("div", "analyst-line", "Reliability · " + (item.reliability || "—") + " · Freshness · " + (item.freshness || "—")));
+      analyst.appendChild(el("div", "analyst-line", "Geography · " + (item.geography || "—") + " · Observed · " + fmtInstant(item.observed_at)));
+      analyst.appendChild(el("div", "analyst-line", "Source · " + (item.source_url || "—")));
+      card.appendChild(analyst);
       card.addEventListener("click", function () {
         selectEvidence(item.id, { focusMap: true, openPopup: true });
       });
@@ -1297,7 +1358,11 @@
 
   /* ---------- dialog focus management ---------- */
 
-  var dialogFocus = { element: null, previous: null, handler: null };
+  // A stack, not a single slot: the command palette can open over the drawer.
+  // Popping the top frame restores focus to whatever opened that dialog, so
+  // closing the palette returns focus to the drawer and closing the drawer
+  // returns focus to the Inspect button.
+  var dialogFocusStack = [];
 
   function focusableIn(dialog) {
     return Array.prototype.filter.call(
@@ -1323,14 +1388,14 @@
       }
     };
     dialog.addEventListener("keydown", handler);
-    dialogFocus = { element: dialog, previous: document.activeElement, handler: handler };
+    dialogFocusStack.push({ element: dialog, previous: document.activeElement, handler: handler });
   }
 
   function releaseDialogFocus() {
-    if (!dialogFocus.element) return;
-    dialogFocus.element.removeEventListener("keydown", dialogFocus.handler);
-    var previous = dialogFocus.previous;
-    dialogFocus = { element: null, previous: null, handler: null };
+    var frame = dialogFocusStack.pop();
+    if (!frame) return;
+    frame.element.removeEventListener("keydown", frame.handler);
+    var previous = frame.previous;
     if (previous && typeof previous.focus === "function") previous.focus();
   }
 
@@ -1583,7 +1648,6 @@
     show(dom.historyError, false);
     var result = refreshHistoryValidation(true);
     if (!result.ok) {
-      showHistoryError(result.code, result.message);
       showHistoryLoading(false);
       showHistoryEmpty("Fix the highlighted range, then select Fetch history.");
       return;
@@ -1795,6 +1859,7 @@
     renderSummary(data);
     renderSignalCards(data);
     renderActions(data);
+    renderVerdictStrip(data);
     renderRules(data);
     renderTimeline(data);
     renderDistribution();
@@ -1815,11 +1880,13 @@
   function syncWorkspace() {
     var busy = state.busy;
     var hasCurrent = !!state.current;
+    var historyView = document.body.getAttribute("data-view") === "history";
     show(dom.loadingSkeleton, busy && !hasCurrent);
     show(dom.loadingAnnouncement, busy);
     show(dom.loadingPill, busy && hasCurrent);
     show(dom.results, hasCurrent);
-    show(dom.empty, !hasCurrent && !busy);
+    show(dom.verdictStrip, hasCurrent);
+    show(dom.empty, !hasCurrent && !busy && !historyView);
   }
 
   function setBusy(busy) {
@@ -2026,6 +2093,18 @@
 
   dom.form.addEventListener("submit", function (event) {
     event.preventDefault();
+    submit({
+      origin: dom.origin.value.trim(),
+      destination: dom.destination.value.trim(),
+      date: dom.date.value,
+    }, false);
+  });
+
+  dom.demoYesterday.addEventListener("click", function () {
+    dom.origin.value = "New York";
+    dom.destination.value = "San Francisco";
+    syncCodes();
+    dom.date.value = demoYesterdayDate();
     submit({
       origin: dom.origin.value.trim(),
       destination: dom.destination.value.trim(),

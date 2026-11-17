@@ -49,6 +49,29 @@ def test_index_resolves_canonical_and_social_urls(monkeypatch) -> None:
     assert 'rel="apple-touch-icon" href="/static/apple-touch-icon.png"' in html
 
 
+def test_index_has_baseline_security_headers(monkeypatch) -> None:
+    """The public page carries hardening headers, including a working CSP."""
+    response = _client(monkeypatch).get("/")
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert (
+        response.headers["permissions-policy"]
+        == "geolocation=(), microphone=(), camera=()"
+    )
+    csp = response.headers["content-security-policy"]
+    for directive in (
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "https://unpkg.com",  # MapLibre GL JS module + CSS
+        "https://tiles.openfreemap.org",  # vector tiles
+        "https://fonts.googleapis.com",  # Geist stylesheet
+    ):
+        assert directive in csp
+
+
 def test_robots_exposes_only_public_pages(monkeypatch) -> None:
     """Robots points crawlers to the sitemap and excludes non-product routes."""
     response = _client(monkeypatch).get("/robots.txt")

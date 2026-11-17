@@ -129,6 +129,47 @@ the visual centrepiece, not a decorative thumbnail.
   results with a fresh error, and first-run loading feedback is shown before any
   results exist.
 
+## Demo walkthrough
+
+If you follow the brief's example literally — New York → San Francisco, **tomorrow**
+— and the travel day happens to be quiet, you will honestly get `INDETERMINATE`, not
+a reassuring `LOW`. This is correct behaviour, not a broken demo. Gridpoint forecasts
+that meet no severity threshold are deliberately not emitted, and a METAR is only a
+~1 h observation that falls outside the eligibility core 1–2 days out. With no
+eligible evidence the rule engine fires R01 → `INDETERMINATE` (see
+[Benign in-horizon coverage is intentionally not reassuring](#benign-in-horizon-coverage-is-intentionally-not-reassuring)
+below). "Both providers were reached" is not the same as "both contributed evidence";
+the prototype refuses to manufacture an all-clear.
+
+For a **reliably populated** demo, use a retrospective date instead:
+
+1. Set **origin** to New York (`JFK`) and **destination** to San Francisco (`SFO`).
+2. Set the **date to yesterday**, measured in the departure airport's local time
+   (New York local date). Any date within the supported 7-day retrospective window
+   works; yesterday is the simplest to pick.
+3. Submit. A past date switches the run to retrospective mode: AWC historical METAR
+   observations anchored on the travel day plus Open-Meteo recent-past model
+   (reanalysis) hours for both airports — both genuine external calls, classified by
+   the same deterministic decision table. Expect a `RETROSPECTIVE` badge and a
+   coverage note stating that NWS alert history, TAF history and station-grade
+   precision are unavailable.
+
+What you should see:
+
+- a **classification** with confidence and the triggered rule IDs — the exact level
+  varies with real weather, so no specific value is promised;
+- an **evidence ledger** with per-item provider, value, timestamp/freshness,
+  relevance and **source links** back to the provider;
+- a **recommended action** derived from the rules, plus the decision trace;
+- **provider status** entries (e.g. `OPEN_METEO` / `AWC`) showing that each call
+  succeeded and read a payload — data-gathering status, not a risk judgement.
+
+To browse deeper history, open the **History** view (the History pill or "View
+historical conditions"): it serves up to 366 days of Open-Meteo Archive ERA5
+**reanalysis (model, not observations)** for the pre-filled route, with daily tables
+and precipitation/wind bars. History is data browsing only — it deliberately emits
+no classification, severity, confidence or score.
+
 ## Test
 
 ```bash
@@ -312,10 +353,29 @@ is warranted in the MVP.
 
 ## How AI was used in development
 
-AI assisted with coding, adapter scaffolding, decision-table/test drafting and
-documentation, guided by the architect's verified endpoint research. At runtime
-RouteGuard is fully deterministic: there is no model call, no generated prose and
-no AI-derived classification.
+I used AI coding assistants — Claude Code and WorkBuddy AI agents — strictly as a
+development aid, not as a decision-maker. They helped me draft the weather provider
+adapters (NWS, AWC, Open-Meteo and the Open-Meteo Archive), the deterministic
+decision table and normalization rules, the offline regression tests, and
+documentation including this README and the PRD/architecture notes. I supplied the
+architect's verified endpoint research and the binding guardrails as constraints,
+then reviewed and corrected every draft before accepting it.
+
+I verified each AI-produced draft myself against real behaviour. That verification
+was human-led: live API calls against NWS (`api.weather.gov`), AWC
+(`aviationweather.gov`) and Open-Meteo to confirm endpoints and payload shapes;
+browser QA in Chromium and WebKit at desktop, tablet and mobile widths; and
+independent audits (QA, security/repository hygiene, backend correctness and
+frontend interaction) whose findings I fixed and regression-tested. The product
+decisions — scope, the no-score design, the honest INDETERMINATE behaviour,
+provider exclusions and the pre-production change list — were mine, not the AI's.
+
+The boundary is deliberate: there is **no LLM and no AI-derived classification at
+runtime**. RouteGuard makes no model call, generates no prose, and assigns no risk
+level from an AI output. Every classification comes from the deterministic rule
+engine (`app/risk.py` and the decision table in `docs/01_architecture.md`), so the
+same input always yields the same explanation. AI helped write the code; it does
+not run in the product.
 
 ## What I'd change before production
 

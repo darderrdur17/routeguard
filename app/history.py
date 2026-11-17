@@ -127,10 +127,20 @@ class HistoryService:
                 f"end_date must be on or before {bound.isoformat()} "
                 f"(ERA5 archive publishes ~{ARCHIVE_LAG_DAYS} days behind today).",
             )
+        # The old one-year lookback (``end_date - timedelta(days=365)``)
+        # overflowed for dates near ``date.min`` and escaped as a 500. Both
+        # comparisons below are overflow-free: ``end_date - date.min`` is a
+        # bounded timedelta, and ``span_days`` is an integer. Dates too early to
+        # form a supported archive window are rejected as INVALID_DATE, and the
+        # span check preserves the strict "at most ARCHIVE_MAX_SPAN_DAYS
+        # inclusive days" rule that fully subsumed the old lookback clause.
+        if end_date - date.min < timedelta(days=ARCHIVE_MAX_SPAN_DAYS - 1):
+            raise RouteInputError(
+                "INVALID_DATE",
+                f"end_date {end_date.isoformat()} is outside the supported archive range.",
+            )
         span_days = (end_date - start_date).days
-        if span_days > ARCHIVE_MAX_SPAN_DAYS or start_date < end_date - timedelta(
-            days=365
-        ):
+        if span_days + 1 > ARCHIVE_MAX_SPAN_DAYS:
             raise RouteInputError(
                 "INVALID_DATE",
                 f"History ranges span at most {ARCHIVE_MAX_SPAN_DAYS} days; "

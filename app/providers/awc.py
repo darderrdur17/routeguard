@@ -139,6 +139,12 @@ class AWCAdapter:
     ) -> list[dict[str, Any]]:
         """Wrap each AWC record with provenance and station role metadata."""
         if result.data is None:
+            # A 204 is a legitimate "no content" outcome already noted by
+            # fetch(). A 200 carrying JSON null is malformed evidence, not
+            # healthy no-data: the "Malformed" prefix drives fetch() to mark
+            # the provider DEGRADED instead of silently reporting OK/0 evidence.
+            if result.status_code != 204:
+                notes.append(f"Malformed AWC {signal} payload: JSON null body.")
             return []
         if not isinstance(result.data, list):
             notes.append(f"Malformed AWC {signal} payload: array expected.")

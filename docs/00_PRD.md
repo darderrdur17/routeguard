@@ -30,6 +30,19 @@ Per guardrails §4, demo succeeds only if: frontend accepts route + date; genuin
 | Vite + React + MUI + Tailwind; Python backend | Unspecified | Assumption (implementation choice) |
 | Fixed city→airport lookup, no live schedule data | Unspecified | Assumption (implementation choice) |
 
+### AI use in development (source-of-truth note)
+
+I used AI coding assistants (Claude Code, WorkBuddy AI agents) only as a development
+aid: they helped draft the weather provider adapters, the deterministic decision
+table, the offline regression tests and documentation, constrained by the
+architect's verified endpoint research and the binding guardrails. I verified every
+draft myself with live API calls (NWS/AWC/Open-Meteo), browser QA in Chromium and
+WebKit, and independent audits whose findings I fixed and regression-tested. Product
+decisions were mine. At runtime there is **no LLM and no AI-derived classification** —
+classifications come entirely from the deterministic rule engine (`app/risk.py`).
+This is consistent with guardrails §4 ("no ... AI summaries as core features") and
+the assignment email's "explain how and where you used AI" requirement.
+
 ## 3. User stories
 
 | ID | Story | Acceptance criteria |

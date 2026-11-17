@@ -139,6 +139,22 @@ def test_range_over_366_days_is_rejected() -> None:
     assert "366" in body["message"]
 
 
+def test_minimum_date_is_invalid_date_not_overflow_500() -> None:
+    """A 0001-01-01 range returns INVALID_DATE, never an OverflowError/500."""
+    client = TestClient(main_module.app)
+    response = get_history(
+        client,
+        origin="JFK",
+        destination="SFO",
+        start_date=date.min.isoformat(),
+        end_date=date.min.isoformat(),
+    )
+    assert response.status_code == 422
+    body = response.json()
+    _assert_envelope(body, "INVALID_DATE")
+    assert "outside the supported archive range" in body["message"]
+
+
 def test_start_after_end_is_rejected() -> None:
     """An inverted range is an INVALID_DATE."""
     client = TestClient(main_module.app)

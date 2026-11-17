@@ -157,6 +157,19 @@ def test_unknown_routes_and_methods_use_the_uniform_envelope(
     _assert_structured_error(response.json(), "METHOD_NOT_ALLOWED")
 
 
+def test_security_headers_preserve_request_id_on_errors(monkeypatch) -> None:
+    """The security middleware wraps error envelopes without losing IDs."""
+    client, _calls = _client(monkeypatch)
+    response = client.post(
+        "/api/assess",
+        json={"origin": "JFK", "destination": "SFO", "date": "not-a-date"},
+    )
+    assert response.status_code == 422
+    assert response.json()["request_id"]
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+
+
 def test_invalid_route_takes_precedence_over_invalid_date(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

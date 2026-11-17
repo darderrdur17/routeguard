@@ -6,7 +6,7 @@
   --navy-2: #0b1220;
   --ink: #18212f;
   --ink-2: #344154;
-  --muted: #6b7280;
+  --muted: #5b6472;
   --muted-2: #8b95a5;
   --canvas: #f3f4f6;
   --card: #ffffff;
@@ -165,7 +165,7 @@ svg { display: block; }
 @keyframes fadeDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .section-title h1 { font-size: 25px; line-height: 1.15; }
 .section-title p:last-child { color: var(--muted); font-size: 12.5px; margin-top: 3px; max-width: 680px; }
-.section-title .eyebrow { color: var(--coral-deep); }
+.section-title .eyebrow { color: #c2410c; }
 
 .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .freshness-chip {
@@ -281,6 +281,7 @@ kbd {
 .soft-button:hover:not(:disabled) { border-color: var(--coral); color: var(--coral-deep); background: var(--pink-soft); }
 .soft-button.small { height: 28px; padding: 0 10px; font-size: 10.5px; }
 .form-foot { margin-top: 11px; display: flex; flex-direction: column; gap: 5px; }
+.form-foot .demo-button { align-self: flex-start; margin: 3px 0 2px; }
 .error-message { color: var(--red); font-size: 12px; font-family: var(--mono); }
 .scope-line { color: var(--muted); font-size: 11px; }
 .scope-line strong { color: var(--ink-2); }
@@ -318,8 +319,38 @@ kbd {
 .results { margin-top: 18px; }
 .results-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 13px; }
 .results-head h2 { font-size: 19px; }
-.results-head .eyebrow { margin-bottom: 3px; color: var(--coral-deep); }
+.results-head .eyebrow { margin-bottom: 3px; color: #c2410c; }
 .results-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Compact answer strip: classification + action above the map so the primary
+   output is legible in the first screen after an assessment. */
+.verdict-strip {
+  display: grid;
+  grid-template-columns: 1.1fr 0.85fr 0.65fr 2.4fr;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 15px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(239, 85, 69, 0.3);
+  background: linear-gradient(100deg, var(--pink-soft), var(--card) 70%);
+  box-shadow: var(--shadow-card);
+  animation: cardIn var(--t-base) both;
+}
+.strip-item {
+  min-width: 0; display: flex; flex-direction: column; gap: 3px;
+  padding-right: 12px; border-right: 1px solid rgba(17, 24, 39, 0.09);
+}
+.strip-item:last-child { border-right: 0; padding-right: 0; }
+.strip-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.strip-item strong { font-size: 13px; line-height: 1.35; color: var(--ink); min-width: 0; }
+.strip-classification strong { color: var(--violet); font-family: var(--mono); letter-spacing: 0.02em; }
+.strip-action strong {
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
 .coverage-badge {
   display: inline-flex; align-items: center; padding: 5px 11px; border-radius: 999px;
   border: 1px solid rgba(124, 58, 237, 0.25); background: var(--violet-soft);
@@ -367,7 +398,7 @@ kbd {
 .map-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
 
 .map-stage {
-  position: relative; height: 620px; border-radius: 14px; overflow: hidden;
+  position: relative; height: 500px; border-radius: 14px; overflow: hidden;
   border: 1px solid var(--line); background: #e9edf2;
 }
 #map-canvas { position: absolute; inset: 0; }
@@ -375,6 +406,8 @@ kbd {
 body.maplibre-ready #route-map { display: none; }
 #route-map > rect, #route-map > line, #route-map > text, #route-map > defs, #route-map > g.decorative { pointer-events: none; }
 .map-marker { cursor: pointer; }
+.map-marker.is-selected > circle:first-of-type { opacity: 0.42; stroke: var(--coral-deep); stroke-width: 2; }
+.map-marker.is-selected > circle:last-of-type { stroke: var(--coral-deep); stroke-width: 3; }
 .map-tooltip {
   position: absolute; z-index: 8; pointer-events: none; max-width: 230px;
   padding: 8px 10px; border-radius: 8px; background: rgba(17, 24, 39, 0.94); color: #e5e7eb;
@@ -562,6 +595,11 @@ body.maplibre-ready #route-map { display: none; }
 .evidence-signal { font-size: 11.5px; color: var(--ink); margin-bottom: 4px; }
 .evidence-reason { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
 .evidence-foot { display: flex; gap: 8px; margin-top: 9px; font-family: var(--mono); font-size: 8.5px; color: var(--muted); flex-wrap: wrap; }
+.evidence-analyst {
+  margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--line-strong);
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+}
+.analyst-line { font-family: var(--mono); font-size: 9.5px; line-height: 1.45; color: var(--ink-2); overflow-wrap: anywhere; }
 
 .distribution { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .dist-group h4 { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 9px; }
@@ -715,7 +753,7 @@ body[data-view="history"] #history-section { display: block; }
   .support-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card-journey, .card-verdict, .card-actions { grid-column: span 2; }
   .card-weather, .card-charcoal, .card-aviation { grid-column: span 1; }
-  .map-stage { height: 580px; }
+  .map-stage { height: 470px; }
 }
 
 @media (max-width: 1180px) {
@@ -739,7 +777,7 @@ body[data-view="history"] #history-section { display: block; }
   .distribution, .action-list, .provider-grid { grid-template-columns: 1fr; }
   .context-column { grid-template-columns: 1fr; }
   .context-primary, .context-method { grid-column: span 1; }
-  .map-stage { height: 520px; }
+  .map-stage { height: 420px; }
   .map-controls { width: 160px; }
   .map-legend { max-width: calc(100% - 28px); bottom: 72px; }
 }
@@ -769,9 +807,11 @@ body[data-view="history"] #history-section { display: block; }
   .form-grid .primary-button { grid-column: auto; }
   .view-bar { gap: 5px; }
   .view-label { flex-basis: 100%; }
+  .verdict-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .strip-action { grid-column: span 2; }
   .card { padding: 14px; }
   .map-card { padding: 12px; }
-  .map-stage { height: 460px; }
+  .map-stage { height: 380px; }
   .map-controls { top: 10px; right: 10px; width: 142px; padding: 9px 10px; }
   .map-legend { left: 10px; right: 10px; bottom: 78px; max-width: none; }
   .map-caption { left: 10px; right: 10px; bottom: 10px; }

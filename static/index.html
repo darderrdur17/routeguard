@@ -193,6 +193,7 @@
           </form>
           <div class="form-foot">
             <p id="form-error" class="error-message" role="alert" hidden></p>
+            <button id="demo-yesterday" class="soft-button demo-button" type="button" title="Run a real retrospective assessment for New York → San Francisco using yesterday's date in the origin airport's timezone. No data is fabricated.">Try yesterday (retrospective demo)</button>
             <p class="scope-line">
               <strong>Scope:</strong> commercial air travel, airport-level — not a verified flight itinerary.
               US routes use NWS + AWC; other countries use Open-Meteo + AWC. No flight number, gate,
@@ -221,7 +222,7 @@
         <section id="loading-skeleton" class="loading-skeleton" aria-hidden="true" hidden>
           <div class="skeleton skeleton-map"></div>
           <div class="skeleton-lines"><span></span><span></span><span></span><span></span></div>
-        </div>
+        </section>
         <div id="loading-announcement" class="loading-announcement" role="status" aria-live="polite" hidden>
           Assessment in progress. Public sources have not returned yet.
         </div>
@@ -237,6 +238,25 @@
               <span id="updated-at" class="updated-at">—</span>
               <span id="loading-pill" class="loading-pill" hidden>Contacting public sources…</span>
             </div>
+          </div>
+
+          <div id="verdict-strip" class="verdict-strip" hidden>
+            <span class="strip-item strip-classification">
+              <span class="strip-label">Classification</span>
+              <strong id="strip-classification">—</strong>
+            </span>
+            <span class="strip-item">
+              <span class="strip-label">Confidence</span>
+              <strong id="strip-confidence">—</strong>
+            </span>
+            <span class="strip-item">
+              <span class="strip-label">Evidence</span>
+              <strong id="strip-evidence-count">—</strong>
+            </span>
+            <span class="strip-item strip-action">
+              <span class="strip-label">Recommended action</span>
+              <strong id="strip-action">—</strong>
+            </span>
           </div>
 
           <div class="intelligence-layout">
@@ -334,6 +354,7 @@
                   </div>
                   <p id="coverage-note" class="coverage-note"></p>
                   <p class="plain-language" data-mode-copy="overview">Plain English: this is a rule-based interpretation of retrieved public signals, not a probability or an airport closure notice.</p>
+                  <p class="plain-language analyst-note" data-mode-copy="analyst" hidden>Analyst view: rules R01–R08 classify retrieved evidence on severity and coverage; confidence C01–C05 is a separate reliability axis. Evidence cards expose source excerpts, reliability, freshness, geography and original observation timestamps.</p>
                 </article>
 
                 <article class="card card-weather" aria-labelledby="weather-heading">
