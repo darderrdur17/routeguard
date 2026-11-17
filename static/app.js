@@ -21,6 +21,7 @@
     lastPayload: null,
     lastRouteKey: "",
     busy: false,
+    historyBusy: false,
     mode: "overview",
     map: null,
     mapReady: false,
@@ -117,6 +118,21 @@
     paletteInput: document.getElementById("palette-input"),
     paletteResults: document.getElementById("palette-results"),
     paletteKey: document.getElementById("palette-key"),
+    historySection: document.getElementById("history-section"),
+    historyOrigin: document.getElementById("history-origin"),
+    historyDestination: document.getElementById("history-destination"),
+    historyStart: document.getElementById("history-start"),
+    historyEnd: document.getElementById("history-end"),
+    historyFetch: document.getElementById("history-fetch"),
+    historyError: document.getElementById("history-error"),
+    historyProvenance: document.getElementById("history-provenance"),
+    historyOpen: document.getElementById("history-open"),
+    historyOriginPanel: document.getElementById("history-origin-panel"),
+    historyDestinationPanel: document.getElementById("history-destination-panel"),
+    historyOriginTable: document.getElementById("history-origin-table"),
+    historyDestinationTable: document.getElementById("history-destination-table"),
+    historyOriginSvg: document.getElementById("history-origin-svg"),
+    historyDestinationSvg: document.getElementById("history-destination-svg"),
   };
 
   /* ---------- primitives ---------- */
@@ -264,6 +280,39 @@
 
   var SEVERITY_RANK = { UNKNOWN: 0, MINOR: 1, MODERATE: 2, SEVERE: 3, EXTREME: 4 };
 
+  /* WMO weather-code descriptions for the history tables. Wording uses only
+     Light/Moderate/Strong; no severity classification is implied. */
+  var WMO_DESCRIPTIONS = {
+    0: "Clear sky",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Fog",
+    48: "Rime fog",
+    51: "Light drizzle",
+    53: "Moderate drizzle",
+    55: "Strong drizzle",
+    56: "Light freezing drizzle",
+    57: "Strong freezing drizzle",
+    61: "Light rain",
+    63: "Moderate rain",
+    65: "Strong rain",
+    66: "Light freezing rain",
+    67: "Strong freezing rain",
+    71: "Light snowfall",
+    73: "Moderate snowfall",
+    75: "Strong snowfall",
+    77: "Snow grains",
+    80: "Light rain showers",
+    81: "Moderate rain showers",
+    82: "Strong rain showers",
+    85: "Light snow showers",
+    86: "Strong snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm with light hail",
+    99: "Thunderstorm with strong hail",
+  };
+
   /* ---------- view and filter state ---------- */
 
   var VIEW_TESTS = {
@@ -309,14 +358,29 @@
   }
 
   function renderViewPills() {
+    var historyActive = document.body.getAttribute("data-view") === "history";
     Array.prototype.forEach.call(dom.viewBar.querySelectorAll(".view-pill"), function (button) {
-      var active = button.getAttribute("data-view") === state.view;
+      var active = historyActive
+        ? button.getAttribute("data-view") === "history"
+        : button.getAttribute("data-view") === state.view;
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-pressed", String(active));
     });
   }
 
   function applyView(view) {
+    if (view === "history") {
+      // History is a separate workspace section, not an evidence filter: the
+      // body attribute drives the CSS and the pill, and syncWorkspace and
+      // state.current are left untouched.
+      document.body.setAttribute("data-view", "history");
+      prefillHistoryRoute();
+      renderViewPills();
+      show(dom.historySection, true);
+      return;
+    }
+    document.body.removeAttribute("data-view");
+    show(dom.historySection, false);
     state.view = view;
     state.highlighted = null;
     state.selectedEvidenceId = null;
@@ -1256,6 +1320,265 @@
     releaseDialogFocus();
   }
 
+  /* ---------- history view (ERA5 archive) ---------- */
+
+  var HISTORY_LAG_DAYS = 6;
+  var HISTORY_MAX_SPAN_DAYS = 366;
+  var HISTORY_PRECIP_MODERATE_MM = 10;
+  var HISTORY_PRECIP_STRONG_MM = 25;
+  var HISTORY_WIND_MODERATE_KMH = 30;
+  var HISTORY_WIND_STRONG_KMH = 50;
+
+  function isoLocalDate(value) {
+    return [
+      value.getFullYear(),
+      String(value.getMonth() + 1).padStart(2, "0"),
+      String(value.getDate()).padStart(2, "0"),
+    ].join("-");
+  }
+
+  function archiveMaxEndDate() {
+    var now = new Date();
+    return isoLocalDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - HISTORY_LAG_DAYS));
+  }
+
+  function parseIsoDate(text) {
+    var parts = String(text).split("-");
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  function historySpanDays(startText, endText) {
+    var ms = parseIsoDate(endText).getTime() - parseIsoDate(startText).getTime();
+    return Math.round(ms / 86400000);
+  }
+
+  function prefillHistoryRoute() {
+    var route = state.current && state.current.route ? state.current.route : {};
+    dom.historyOrigin.textContent = route.origin_iata || historyCodeFromInput(dom.origin.value);
+    dom.historyDestination.textContent = route.destination_iata || historyCodeFromInput(dom.destination.value);
+  }
+
+  function historyCodeFromInput(value) {
+    var airport = findAirport(value);
+    if (airport) return airport.iata;
+    var text = String(value || "").trim();
+    return text ? text.toUpperCase() : "—";
+  }
+
+  function showHistoryError(code, message) {
+    dom.historyError.textContent = code + ": " + message;
+    show(dom.historyError, true);
+  }
+
+  function fetchHistory() {
+    if (state.historyBusy) return;
+    show(dom.historyError, false);
+    var origin = dom.historyOrigin.textContent.trim();
+    var destination = dom.historyDestination.textContent.trim();
+    var start = dom.historyStart.value;
+    var end = dom.historyEnd.value;
+    if (!origin || origin === "—" || !destination || destination === "—") {
+      showHistoryError("INVALID_ROUTE", "Assess or enter a route above before fetching history.");
+      return;
+    }
+    if (!start || !end) {
+      showHistoryError("INVALID_DATE", "Pick both a start and an end date for the history range.");
+      return;
+    }
+    // Client-side bounds mirror the backend: the archive ends about 6 days
+    // behind today and spans at most 366 days. The API remains the authority.
+    if (start > end) {
+      showHistoryError("INVALID_DATE", "start_date must be on or before end_date.");
+      return;
+    }
+    var bound = archiveMaxEndDate();
+    if (end > bound) {
+      showHistoryError("INVALID_DATE", "end_date must be on or before " + bound +
+        " (ERA5 archive publishes ~" + HISTORY_LAG_DAYS + " days behind today).");
+      return;
+    }
+    if (historySpanDays(start, end) > HISTORY_MAX_SPAN_DAYS) {
+      showHistoryError("INVALID_DATE", "History ranges span at most 366 days.");
+      return;
+    }
+    state.historyBusy = true;
+    dom.historyFetch.disabled = true;
+    dom.historyFetch.setAttribute("aria-busy", "true");
+    fetch("/api/history?origin=" + encodeURIComponent(origin) +
+        "&destination=" + encodeURIComponent(destination) +
+        "&start_date=" + encodeURIComponent(start) +
+        "&end_date=" + encodeURIComponent(end))
+      .then(function (response) {
+        return response.json().then(function (body) {
+          if (!response.ok) throw body;
+          return body;
+        });
+      })
+      .then(function (data) {
+        try {
+          renderHistory(data);
+        } catch (renderError) {
+          if (window.console && console.error) console.error("RouteGuard history render failed:", renderError);
+          throw { code: "RENDER_FAILED", message: "The history was received but could not be displayed. Refresh the page and try again." };
+        }
+      })
+      .catch(function (envelope) {
+        showHistoryError(
+          envelope && envelope.code ? envelope.code : "REQUEST_FAILED",
+          envelope && envelope.message ? envelope.message : "The history could not be retrieved."
+        );
+      })
+      .finally(function () {
+        state.historyBusy = false;
+        dom.historyFetch.disabled = false;
+        dom.historyFetch.removeAttribute("aria-busy");
+      });
+  }
+
+  function renderHistory(data) {
+    renderHistoryProvenance(data && data.provenance);
+    var airports = (data && data.airports) || {};
+    renderHistoryAirport("origin", airports.origin);
+    renderHistoryAirport("destination", airports.destination);
+  }
+
+  function renderHistoryProvenance(provenance) {
+    clear(dom.historyProvenance);
+    var source = provenance || {};
+    dom.historyProvenance.appendChild(el("strong", "", source.model || "ERA5 reanalysis (model), not observations"));
+    dom.historyProvenance.appendChild(document.createTextNode(" · " + (source.source || "Open-Meteo Archive API")));
+    var link = el("a", "", "Archive API docs ↗");
+    link.href = safeUrl(source.docs_url, "https://open-meteo.com/en/docs/historical-weather-api");
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    dom.historyProvenance.appendChild(link);
+    show(dom.historyProvenance, true);
+  }
+
+  function renderHistoryAirport(role, block) {
+    var table = role === "origin" ? dom.historyOriginTable : dom.historyDestinationTable;
+    var chart = role === "origin" ? dom.historyOriginSvg : dom.historyDestinationSvg;
+    var tbody = table.querySelector("tbody");
+    clear(tbody);
+    clear(chart);
+    if (!block || block.unavailable) {
+      var row = el("tr", "history-empty-row");
+      var cell = el("td", "empty-inline", "no data available for this airport");
+      cell.setAttribute("colspan", "6");
+      row.appendChild(cell);
+      tbody.appendChild(row);
+      return;
+    }
+    var daily = block.daily || {};
+    var times = daily.time || [];
+    var series = {
+      temperature_2m_max: daily.temperature_2m_max || [],
+      temperature_2m_min: daily.temperature_2m_min || [],
+      precipitation_sum: daily.precipitation_sum || [],
+      wind_speed_10m_max: daily.wind_speed_10m_max || [],
+      weather_code: daily.weather_code || [],
+    };
+    times.forEach(function (day, index) {
+      var tr = el("tr", "history-row");
+      historyCell(tr, "history-date", String(day));
+      historyCell(tr, "history-temp", historyValueText(series.temperature_2m_max[index]));
+      historyCell(tr, "history-temp", historyValueText(series.temperature_2m_min[index]));
+      historyCell(tr, "history-precip", historyValueText(series.precipitation_sum[index]));
+      historyCell(tr, "history-wind", historyValueText(series.wind_speed_10m_max[index]));
+      historyCell(tr, "history-conditions", historyWmoText(series.weather_code[index]));
+      tbody.appendChild(tr);
+    });
+    renderHistoryChart(chart, role, series.precipitation_sum, series.wind_speed_10m_max);
+  }
+
+  function historyCell(row, className, text) {
+    row.appendChild(el("td", className, text));
+  }
+
+  function historyValueText(value) {
+    if (value === undefined || value === null) return "no data";
+    return String(value);
+  }
+
+  function historyWmoText(code) {
+    if (code === undefined || code === null || WMO_DESCRIPTIONS[code] === undefined) return "no data";
+    return WMO_DESCRIPTIONS[code];
+  }
+
+  function historyPrecipColor(value) {
+    if (value >= HISTORY_PRECIP_STRONG_MM) return "var(--red)";
+    if (value >= HISTORY_PRECIP_MODERATE_MM) return "var(--amber)";
+    return "var(--green)";
+  }
+
+  function historyWindColor(value) {
+    if (value >= HISTORY_WIND_STRONG_KMH) return "var(--red)";
+    if (value >= HISTORY_WIND_MODERATE_KMH) return "var(--amber)";
+    return "var(--green)";
+  }
+
+  function renderHistoryChart(chart, role, precipitation, wind) {
+    var width = 640;
+    var baseline = 136;
+    var top = 18;
+    chart.setAttribute("viewBox", "0 0 640 170");
+    var hatchId = "history-hatch-" + role;
+    var defs = svg("defs");
+    var pattern = svg("pattern", { id: hatchId, width: 6, height: 6, patternUnits: "userSpaceOnUse" });
+    var hatchPath = svg("path", { d: "M 0 6 L 6 0", "stroke-width": 1.4 });
+    hatchPath.style.stroke = "var(--line-strong)";
+    pattern.appendChild(hatchPath);
+    defs.appendChild(pattern);
+    chart.appendChild(defs);
+    var half = width / 2;
+    drawHistoryBarGroup(chart, precipitation, 0, half, baseline, top, "Precipitation (mm)", hatchId, historyPrecipColor);
+    drawHistoryBarGroup(chart, wind, half, half, baseline, top, "Wind (km/h)", hatchId, historyWindColor);
+    var axis = svg("line", { x1: 8, y1: baseline, x2: width - 8, y2: baseline, "stroke-width": 1 });
+    axis.style.stroke = "var(--line)";
+    chart.appendChild(axis);
+  }
+
+  function drawHistoryBarGroup(chart, values, offsetX, groupWidth, baseline, top, label, hatchId, colorFor) {
+    var count = values.length || 1;
+    var slot = groupWidth / count;
+    var barWidth = Math.max(2, slot * 0.62);
+    var max = 0;
+    values.forEach(function (value) {
+      if (typeof value === "number" && isFinite(value) && value > max) max = value;
+    });
+    if (max <= 0) max = 1;
+    var group = svg("g", { class: "history-bar-group" });
+    values.forEach(function (value, index) {
+      var x = offsetX + index * slot + (slot - barWidth) / 2;
+      if (typeof value !== "number" || !isFinite(value)) {
+        // Missing day: an explicit empty slot with a hatch fill, never zero.
+        var slotRect = svg("rect", {
+          class: "history-slot", x: x, y: top, width: barWidth, height: baseline - top,
+          fill: "url(#" + hatchId + ")", opacity: 0.9,
+        });
+        var slotTitle = svg("title");
+        slotTitle.textContent = "no data";
+        slotRect.appendChild(slotTitle);
+        group.appendChild(slotRect);
+        return;
+      }
+      var barHeight = Math.max(2, (value / max) * (baseline - top));
+      var bar = svg("rect", {
+        class: "history-bar", x: x, y: baseline - barHeight, width: barWidth, height: barHeight,
+      });
+      bar.style.fill = colorFor(value);
+      var barTitle = svg("title");
+      barTitle.textContent = String(value);
+      bar.appendChild(barTitle);
+      group.appendChild(bar);
+    });
+    chart.appendChild(group);
+    var caption = svg("text", { x: offsetX + 6, y: baseline + 16, "font-size": 10, "font-family": "Geist Mono, monospace" });
+    caption.style.fill = "var(--muted)";
+    caption.textContent = label;
+    chart.appendChild(caption);
+  }
+
   /* ---------- master render and request flow ---------- */
 
   function render(data) {
@@ -1513,6 +1836,9 @@
   Array.prototype.forEach.call(dom.viewBar.querySelectorAll(".view-pill"), function (button) {
     button.addEventListener("click", function () { applyView(button.getAttribute("data-view")); });
   });
+
+  dom.historyOpen.addEventListener("click", function () { applyView("history"); });
+  dom.historyFetch.addEventListener("click", fetchHistory);
 
   [dom.layerAirports, dom.layerRoutes, dom.layerWeather, dom.layerAviation].forEach(function (input) {
     input.addEventListener("change", function () {

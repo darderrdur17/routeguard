@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from xml.sax.saxutils import escape
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import (
     FileResponse,
@@ -23,8 +23,9 @@ from starlette.types import Scope
 
 from app.cities import CityRegistry
 from app.config import settings
+from app.history import HistoryService
 from app.logging import CorrelationIdMiddleware, emit, new_request_id
-from app.models import AssessRequest, ErrorEnvelope
+from app.models import AssessRequest, ErrorEnvelope, HistoryRequest
 from app.service import AssessmentService, RouteInputError
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -48,6 +49,7 @@ app.add_middleware(CorrelationIdMiddleware)
 app.mount("/static", CanonicalStaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _service = AssessmentService()
+_history_service = HistoryService()
 
 
 def _request_id(request: Request) -> str:
@@ -111,7 +113,8 @@ async def validation_error_handler(
         for location in locations
     ):
         code = "INVALID_ROUTE"
-    elif any("date" in location for location in locations):
+    elif any("date" in ".".join(location) for location in locations):
+        # Substring match so query.date, start_date and end_date all map here.
         code = "INVALID_DATE"
     else:
         code = "INVALID_REQUEST"
@@ -257,3 +260,36 @@ async def assess(payload: AssessRequest, request: Request) -> JSONResponse:
     """
     assessment = await _service.assess(payload, _request_id(request))
     return JSONResponse(status_code=200, content=assessment.model_dump(mode="json"))
+
+
+@app.get("/api/history")
+async def history(
+    query: Annotated[HistoryRequest, Query()], request: Request
+) -> JSONResponse:
+    """Return daily ERA5 archive reanalysis for one route and date range.
+
+    Field-level validation is handled by the shared RequestValidationError
+    handler. RouteInputError from the history service maps INVALID_DATE and
+    INVALID_ROUTE to 422 and UPSTREAM_UNAVAILABLE to 502, all with the uniform
+    error envelope. Partial upstream failures stay inside the 200 payload as
+    per-airport ``unavailable`` blocks.
+    """
+    request_id = _request_id(request)
+    try:
+        payload = await _history_service.fetch_history(
+            query.origin,
+            query.destination,
+            query.start_date,
+            query.end_date,
+            request_id,
+        )
+    except RouteInputError as exc:
+        emit("request_rejected", request_id=request_id, code=exc.code)
+        return _error_response(
+            code=exc.code,
+            message=exc.message,
+            request_id=request_id,
+            status_code=502 if exc.code == "UPSTREAM_UNAVAILABLE" else 422,
+            details=exc.details,
+        )
+    return JSONResponse(status_code=200, content=payload)

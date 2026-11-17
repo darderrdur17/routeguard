@@ -125,6 +125,22 @@ class AssessRequest(BaseModel):
         return value
 
 
+class HistoryRequest(BaseModel):
+    """Incoming history request, flattened into query parameters.
+
+    Field names mirror the /api/history query string so the shared
+    RequestValidationError handler can map locations: origin/destination
+    errors become INVALID_ROUTE and date errors become INVALID_DATE.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    origin: str = Field(min_length=2, max_length=64)
+    destination: str = Field(min_length=2, max_length=64)
+    start_date: date
+    end_date: date
+
+
 class Evidence(BaseModel):
     """One normalized, explainable provider signal."""
 

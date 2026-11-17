@@ -195,3 +195,35 @@ def test_horizontal_overflow_is_clipped_for_safari() -> None:
     """The page never pans horizontally; sticky positioning is preserved."""
     assert "html, body { overflow-x: clip; }" in STYLES
     assert "--rail-w: 64px" in STYLES
+
+
+def test_history_view_shell_is_wired_into_the_workspace() -> None:
+    """The History pill, section, toolbar and context entry point all exist."""
+    assert 'data-view="history"' in INDEX
+    assert 'id="history-section"' in INDEX
+    assert 'id="history-origin"' in INDEX and 'id="history-destination"' in INDEX
+    assert 'id="history-start"' in INDEX and 'id="history-end"' in INDEX
+    assert 'id="history-fetch"' in INDEX
+    assert 'id="history-error"' in INDEX
+    assert 'id="history-provenance"' in INDEX
+    assert 'id="history-origin-panel"' in INDEX and 'id="history-destination-panel"' in INDEX
+    assert 'id="history-origin-table"' in INDEX and 'id="history-destination-table"' in INDEX
+    assert 'id="history-origin-svg"' in INDEX and 'id="history-destination-svg"' in INDEX
+    assert 'id="history-open"' in INDEX
+    # The reanalysis labelling must be visible in both the markup and the JS.
+    assert "ERA5 reanalysis (model), not observations" in INDEX
+    assert "ERA5 reanalysis (model), not observations" in APP
+
+
+def test_history_view_visibility_rules_and_renderers_exist() -> None:
+    """The body[data-view] rules own section switching and the JS renders offline."""
+    assert 'body[data-view="history"] #results { display: none; }' in STYLES
+    assert 'body[data-view="history"] #history-section { display: block; }' in STYLES
+    assert "function fetchHistory()" in APP
+    assert "function renderHistory(" in APP
+    assert "function renderHistoryAirport(" in APP
+    assert "function drawHistoryBarGroup(" in APP
+    assert 'applyView("history")' in APP
+    assert '"no data"' in APP
+    # History rendering stays on the safe-DOM path: no innerHTML anywhere.
+    assert ".innerHTML" not in APP

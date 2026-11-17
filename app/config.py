@@ -31,6 +31,9 @@ class Settings:
         freshness_hours: Issue-age thresholds by signal type.
         forecast_horizon_days: NWS gridpoint forecast horizon disclosed to users.
         taf_horizon_hours: TAF validity horizon disclosed to users.
+        open_meteo_docs_url: Official Open-Meteo documentation (fallback link).
+        open_meteo_archive_url: ERA5 historical-weather archive endpoint.
+        open_meteo_archive_docs_url: Official archive API documentation (fallback link).
         site_url: Canonical public origin for SEO metadata; empty means derive from
             the incoming request (useful for local runs and preview deployments).
     """
@@ -53,6 +56,10 @@ class Settings:
     nws_docs_url: str = "https://www.weather.gov/documentation/services-web-api"
     awc_docs_url: str = "https://aviationweather.gov/data/api/"
     open_meteo_docs_url: str = "https://open-meteo.com/en/docs"
+    open_meteo_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
+    open_meteo_archive_docs_url: str = (
+        "https://open-meteo.com/en/docs/historical-weather-api"
+    )
     freshness_hours: dict[str, int] = field(
         default_factory=lambda: {
             "NWS_ALERT": 24,

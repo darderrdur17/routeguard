@@ -209,6 +209,7 @@
           <button class="view-pill" type="button" data-view="operations" aria-pressed="false">Airport Operations</button>
           <button class="view-pill" type="button" data-view="advisories" aria-pressed="false">Aviation Advisories</button>
           <button class="view-pill" type="button" data-view="high" aria-pressed="false">High Priority</button>
+          <button class="view-pill" type="button" data-view="history" aria-pressed="false">History</button>
         </div>
 
         <section id="empty-state" class="empty-state" aria-live="polite">
@@ -440,6 +441,7 @@
                   <div><dt>Providers</dt><dd id="context-providers">—</dd></div>
                   <div><dt>Focus</dt><dd id="context-focus">—</dd></div>
                 </dl>
+                <button id="history-open" class="soft-button" type="button">View historical conditions</button>
               </article>
 
               <article class="context-card" id="selection-card">
@@ -484,6 +486,63 @@
                 </div>
               </article>
             </aside>
+          </div>
+        </section>
+
+        <section id="history-section" class="history-section" aria-labelledby="history-heading" hidden>
+          <div class="history-toolbar">
+            <div>
+              <p class="eyebrow">History / ERA5 archive</p>
+              <h2 id="history-heading">Historical conditions</h2>
+              <p class="muted small">Daily model reanalysis for the active route — ERA5 reanalysis (model), not observations.</p>
+            </div>
+            <div class="history-controls">
+              <span id="history-origin" class="input-code">—</span>
+              <span class="history-route-arrow" aria-hidden="true">→</span>
+              <span id="history-destination" class="input-code">—</span>
+              <label class="field-inline">
+                <span class="field-label">From</span>
+                <input id="history-start" type="date" aria-label="History start date" />
+              </label>
+              <label class="field-inline">
+                <span class="field-label">To</span>
+                <input id="history-end" type="date" aria-label="History end date" />
+              </label>
+              <button id="history-fetch" class="primary-button" type="button">
+                <span>Fetch history</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+          <p id="history-error" class="error-message" role="alert" hidden></p>
+          <p id="history-provenance" class="history-provenance" hidden></p>
+          <div class="history-panels">
+            <article class="card history-panel" id="history-origin-panel" aria-labelledby="history-origin-heading">
+              <div class="card-head compact">
+                <div><p class="eyebrow">Origin · daily archive</p><h3 id="history-origin-heading">Origin conditions</h3></div>
+                <span class="panel-tag">ERA5</span>
+              </div>
+              <table id="history-origin-table" class="history-table">
+                <thead>
+                  <tr><th scope="col">Date</th><th scope="col">Max °C</th><th scope="col">Min °C</th><th scope="col">Precip mm</th><th scope="col">Wind km/h</th><th scope="col">Conditions</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <svg id="history-origin-svg" class="history-chart" viewBox="0 0 640 170" role="img" aria-label="Daily precipitation and maximum wind bars for the origin airport"></svg>
+            </article>
+            <article class="card history-panel" id="history-destination-panel" aria-labelledby="history-destination-heading">
+              <div class="card-head compact">
+                <div><p class="eyebrow">Destination · daily archive</p><h3 id="history-destination-heading">Destination conditions</h3></div>
+                <span class="panel-tag">ERA5</span>
+              </div>
+              <table id="history-destination-table" class="history-table">
+                <thead>
+                  <tr><th scope="col">Date</th><th scope="col">Max °C</th><th scope="col">Min °C</th><th scope="col">Precip mm</th><th scope="col">Wind km/h</th><th scope="col">Conditions</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <svg id="history-destination-svg" class="history-chart" viewBox="0 0 640 170" role="img" aria-label="Daily precipitation and maximum wind bars for the destination airport"></svg>
+            </article>
           </div>
         </section>
       </main>
