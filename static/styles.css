@@ -31,7 +31,7 @@
   --violet-soft: #f0eaff;
   --green: #0f9d6e;
   --green-soft: #e6f6ef;
-  --rail-w: 76px;
+  --rail-w: 64px;
   --radius-xl: 20px;
   --radius-lg: 16px;
   --radius-md: 12px;
@@ -47,6 +47,9 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+/* Clip horizontal overflow without creating a scroll container (keeps
+   position: sticky working and prevents stray horizontal panning in Safari). */
+html, body { overflow-x: clip; }
 html { scroll-behavior: smooth; }
 
 body {
@@ -228,6 +231,10 @@ kbd {
   gap: 10px; align-items: end;
 }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field-hint {
+  font-size: 9.5px; color: var(--muted); font-family: var(--mono);
+  letter-spacing: 0.02em; margin-top: -2px;
+}
 .field-label {
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--muted); font-weight: 650;
@@ -343,7 +350,7 @@ kbd {
 @keyframes refreshLine { to { background-position: -200% 0; } }
 
 .intelligence-layout {
-  display: grid; grid-template-columns: minmax(0, 2.15fr) minmax(300px, 0.85fr);
+  display: grid; grid-template-columns: minmax(0, 2.15fr) minmax(280px, 0.8fr);
   gap: 16px; align-items: start;
 }
 .map-column { min-width: 0; display: flex; flex-direction: column; gap: 14px; }

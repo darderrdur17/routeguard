@@ -192,6 +192,15 @@
     ].join("-");
   }
 
+  function todayLocal() {
+    var now = new Date();
+    return [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+    ].join("-");
+  }
+
   function toast(message) {
     dom.toast.textContent = message;
     show(dom.toast, true);
@@ -1242,8 +1251,7 @@
     state.lastRouteKey = "";
     dom.emptyTitle.textContent = "Awaiting an assessment";
     dom.emptySubtitle.textContent = "Enter a route above to populate the intelligence workspace.";
-    show(dom.empty, false);
-    show(dom.results, true);
+    syncWorkspace();
     renderSummary(data);
     renderSignalCards(data);
     renderActions(data);
@@ -1258,21 +1266,46 @@
     renderMap(data);
   }
 
+  /* Single source of truth for workspace visibility. The invariant: results
+     are visible iff an assessment exists; the skeleton is visible only for a
+     first in-flight assessment; the empty state covers everything else. No
+     code path can leave the canvas blank. */
+  function syncWorkspace() {
+    var busy = state.busy;
+    var hasCurrent = !!state.current;
+    show(dom.loadingSkeleton, busy && !hasCurrent);
+    show(dom.loadingAnnouncement, busy);
+    show(dom.loadingPill, busy && hasCurrent);
+    show(dom.results, hasCurrent);
+    show(dom.empty, !hasCurrent && !busy);
+  }
+
   function setBusy(busy) {
     state.busy = busy;
     dom.submit.disabled = busy;
     dom.refresh.disabled = busy || !state.current;
     dom.submit.querySelector("span").textContent = busy ? "Assessing…" : "Assess route";
-    show(dom.loadingPill, busy && !!state.current);
-    show(dom.loadingAnnouncement, busy);
-    show(dom.loadingSkeleton, busy && !state.current);
     dom.results.classList.toggle("is-refreshing", busy && !!state.current);
     if (dom.results) dom.results.setAttribute("aria-busy", String(busy));
+    syncWorkspace();
   }
 
   function submit(payload, isRefresh) {
     if (state.busy) return;
     show(dom.error, false);
+    // Client-side guard: the API rejects past dates by design because the
+    // providers are forecast- and observation-based. Explain that in plain
+    // language instead of a raw validation envelope.
+    if (payload && payload.date && payload.date < todayLocal()) {
+      dom.error.textContent = "INVALID_DATE: Travel dates in the past cannot be assessed. RouteGuard works from live forecasts and observations, so it only evaluates today onwards — pick today or a future date.";
+      show(dom.error, true);
+      if (!state.current) {
+        dom.emptyTitle.textContent = "Assessment could not be completed";
+        dom.emptySubtitle.textContent = "Pick today or a future travel date above, then try again.";
+      }
+      syncWorkspace();
+      return;
+    }
     setBusy(true);
     fetch("/api/assess", {
       method: "POST",
@@ -1287,27 +1320,30 @@
       })
       .then(function (data) {
         state.lastPayload = payload;
-        render(data);
+        try {
+          render(data);
+        } catch (renderError) {
+          if (window.console && console.error) console.error("RouteGuard render failed:", renderError);
+          throw { code: "RENDER_FAILED", message: "The assessment was received but could not be displayed. Refresh the page and try again." };
+        }
         if (isRefresh) toast("Sources refreshed · " + (data.evidence || []).length + " evidence item(s) · " + data.classification);
       })
       .catch(function (envelope) {
         show(dom.error, true);
         dom.error.textContent = (envelope && envelope.code ? envelope.code + ": " : "REQUEST_FAILED: ") +
           (envelope && envelope.message ? envelope.message : "The assessment could not be completed.");
-        if (envelope && envelope.details && envelope.details.errors) {
-          dom.error.textContent += " " + envelope.details.errors.map(function (e) { return e.field; }).join(", ");
+        if (envelope && envelope.details && Array.isArray(envelope.details.errors)) {
+          // Machine-readable field paths stay available for support, but the
+          // raw "body.date" list no longer clutters the visible message.
+          if (window.console && console.info) console.info("Validation details:", envelope.details.errors);
         }
         // Keep the last good assessment visible when one exists. Only a first
         // assessment should fall back to the empty state.
-        if (state.current) {
-          show(dom.results, true);
-          show(dom.empty, false);
-        } else {
-          show(dom.results, false);
-          show(dom.empty, true);
+        if (!state.current) {
           dom.emptyTitle.textContent = "Assessment could not be completed";
           dom.emptySubtitle.textContent = "Check the highlighted input above, then try again.";
         }
+        syncWorkspace();
       })
       .finally(function () { setBusy(false); });
   }
@@ -1424,6 +1460,7 @@
   /* ---------- wiring ---------- */
 
   dom.date.value = tomorrowLocal();
+  dom.date.min = todayLocal();
   renderMode();
   renderViewPills();
 

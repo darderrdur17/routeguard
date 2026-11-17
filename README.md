@@ -108,7 +108,7 @@ URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap
 1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
 real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
 enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
-Current result: **106 passed**.
+Current result: **112 passed**.
 
 ### Robustness hardening (post-audit)
 
@@ -120,6 +120,20 @@ links to surviving-provider evidence or is skipped); Open-Meteo hourly
 precipitation evidence now carries freshness and participates in classification;
 `/static/index.html` redirects to `/` so no crawlable duplicate page with
 unresolved template placeholders exists.
+
+### UX pass (17 November 2026)
+
+A browser-reported pass fixed: a workspace state that could show neither the
+results nor the empty state (one `syncWorkspace()` function now owns that
+invariant and a render exception surfaces a message instead of a blank canvas);
+stray horizontal panning (`overflow-x: clip`; the navigation rail is narrower at
+64px and the context panel min width 280px); past-date handling — the date
+picker is bounded to today onwards with an inline hint, the client explains
+"*travel dates in the past cannot be assessed*" before the API is called, and
+the API returns a human-readable `INVALID_DATE` message naming the airport-local
+bound instead of a generic validation banner. The Overview/Analyst switch
+documents itself via tooltips (Overview = plain language; Analyst = raw
+excerpts, reliability and technical detail).
 
 ## Dependencies
 

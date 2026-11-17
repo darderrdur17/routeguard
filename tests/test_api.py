@@ -83,6 +83,10 @@ def test_past_date_is_rejected_with_invalid_date_envelope(
     body = response.json()
     _assert_error_envelope(body, "INVALID_DATE", "body.date")
     assert "local today" in body["details"]["errors"][0]["message"]
+    # The top-level message is human-readable and explains why past dates
+    # cannot be assessed instead of a generic validation banner.
+    assert "local today" in body["message"]
+    assert "past dates cannot be evaluated" in body["message"]
     assert calls == []
 
 

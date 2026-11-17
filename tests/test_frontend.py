@@ -53,7 +53,7 @@ def test_loading_states_are_honest_and_accessible() -> None:
     assert 'id="loading-announcement"' in INDEX
     assert 'role="status"' in INDEX and 'aria-live="polite"' in INDEX
     assert "aria-busy" in APP
-    assert "show(dom.loadingSkeleton, busy && !state.current)" in APP
+    assert "show(dom.loadingSkeleton, busy && !hasCurrent)" in APP
     assert "Contacting public sources" in INDEX
     assert "percent" not in APP.lower()
 
@@ -86,7 +86,7 @@ def test_first_assessment_loading_feedback_is_visible_outside_results() -> None:
     assert 0 < skeleton_position < results_position
     assert 0 < announcement_position < results_position
     assert "show(dom.loadingAnnouncement, busy)" in APP
-    assert "show(dom.loadingSkeleton, busy && !state.current)" in APP
+    assert "show(dom.loadingSkeleton, busy && !hasCurrent)" in APP
 
 
 def test_marker_transforms_do_not_override_geographic_placement() -> None:
@@ -141,3 +141,49 @@ def test_raw_index_template_is_not_served_as_a_duplicate_page() -> None:
     response = client.get("/static/index.html")
     assert response.status_code == 307
     assert response.headers["location"] == "/"
+
+
+def test_workspace_visibility_cannot_go_blank() -> None:
+    """One synchronizer owns results/skeleton/empty so the canvas never blanks."""
+    assert "function syncWorkspace()" in APP
+    assert "show(dom.results, hasCurrent)" in APP
+    assert "show(dom.empty, !hasCurrent && !busy)" in APP
+    assert "show(dom.loadingSkeleton, busy && !hasCurrent)" in APP
+    # setBusy, render and the error path all delegate to the synchronizer.
+    assert APP.count("syncWorkspace()") >= 4
+    assert "show(dom.results, true)" not in APP
+    assert "show(dom.results, false)" not in APP
+
+
+def test_render_failure_is_contained_not_silent() -> None:
+    """A rendering exception surfaces a message instead of a blank workspace."""
+    assert "catch (renderError)" in APP
+    assert '"RENDER_FAILED"' in APP
+
+
+def test_past_dates_are_guarded_in_the_client() -> None:
+    """The form blocks past dates before the API and explains why in plain language."""
+    assert "dom.date.min = todayLocal();" in APP
+    assert "function todayLocal()" in APP
+    assert "payload.date < todayLocal()" in APP
+    assert "Travel dates in the past cannot be assessed" in APP
+    assert 'Today onwards' in INDEX
+
+
+def test_validation_field_paths_no_longer_clutter_the_visible_error() -> None:
+    """Raw machine paths stay in the console, not in the user-facing message."""
+    assert "console.info(\"Validation details:\", envelope.details.errors)" in APP
+    assert 'join(", ")' not in APP.split("function submit(")[1].split("/* ----------")[0]
+
+
+def test_mode_switch_explains_its_functionality() -> None:
+    """Overview/Analyst buttons carry descriptive tooltips for discovery."""
+    assert 'title="Plain-language summary for trip planning"' in INDEX
+    assert 'title="Raw excerpts, reliability scores and technical detail"' in INDEX
+    assert "aria-label=\"Experience mode: Overview shows plain-language summaries" in INDEX
+
+
+def test_horizontal_overflow_is_clipped_for_safari() -> None:
+    """The page never pans horizontally; sticky positioning is preserved."""
+    assert "html, body { overflow-x: clip; }" in STYLES
+    assert "--rail-w: 64px" in STYLES

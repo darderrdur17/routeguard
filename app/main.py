@@ -124,6 +124,16 @@ async def validation_error_handler(
             for item in errors
         ]
     }
+    # Surface the first human-readable validation message instead of a generic
+    # banner: the Pydantic wording already names the offending value and bound.
+    first_message = str(errors[0].get("msg", "")) if errors else ""
+    if first_message.startswith("Value error, "):
+        first_message = first_message[len("Value error, ") :]
+    if code == "INVALID_DATE":
+        first_message = (
+            first_message
+            or "The travel date is invalid."
+        ) + " RouteGuard assesses upcoming travel only: providers are forecast- and observation-based, so past dates cannot be evaluated."
     emit(
         "request_rejected",
         request_id=_request_id(request),
@@ -132,7 +142,7 @@ async def validation_error_handler(
     )
     return _error_response(
         code=code,
-        message="Request validation failed.",
+        message=first_message.strip() or "Request validation failed.",
         request_id=_request_id(request),
         status_code=422,
         details=details,

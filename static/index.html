@@ -134,9 +134,9 @@
           </div>
           <div class="top-actions">
             <span id="freshness-chip" class="freshness-chip">No assessment yet</span>
-            <div class="mode-switch" role="group" aria-label="Experience mode">
-              <button id="mode-overview" class="is-active" type="button" aria-pressed="true">Overview</button>
-              <button id="mode-analyst" type="button" aria-pressed="false">Analyst</button>
+            <div class="mode-switch" role="group" aria-label="Experience mode: Overview shows plain-language summaries; Analyst reveals raw excerpts, reliability and technical detail.">
+              <button id="mode-overview" class="is-active" type="button" aria-pressed="true" title="Plain-language summary for trip planning">Overview</button>
+              <button id="mode-analyst" type="button" aria-pressed="false" title="Raw excerpts, reliability scores and technical detail">Analyst</button>
             </div>
             <button id="refresh-button" class="icon-button light" type="button" aria-label="Refresh current assessment" title="Refresh assessment" disabled>
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 7.2A7 7 0 1 0 17 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M16.7 3.6v3.9h-3.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -182,6 +182,7 @@
                 <span class="input-wrap">
                   <input id="travel-date" name="date" type="date" required />
                 </span>
+                <span class="field-hint">Today onwards — past dates can't be assessed</span>
               </label>
               <button id="submit-button" class="primary-button" type="submit">
                 <span>Assess route</span>

@@ -132,3 +132,18 @@ A project-wide audit found 13 issues (3 High, 6 Medium, 4 Low). All were fixed a
 | Stale airport focus cleared | Pass | Switching view pills clears `activeAirport` and rerenders airport blocks. |
 
 Final state: `python3 -m pytest -q` → **106 passed** (90 prior + 16 new regression tests across `test_api.py`, `test_risk.py`, `test_open_meteo.py`, `test_frontend.py`). No rule semantics, no-score architecture or provider contract changed.
+
+---
+
+## Addendum — UX pass: blank workspace, layout panning, date clarity (17 Nov 2026)
+
+User browser reports (Safari, 1920px): a blank workspace despite a completed assessment; content cut off at the navigation-rail edge (horizontal pan); an unclear `INVALID_DATE: Request validation failed. body.date` error for past dates. All fixed and re-verified.
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| Blank workspace impossible | Pass | New `syncWorkspace()` owns visibility: results iff an assessment exists, skeleton only for a first in-flight run, empty state otherwise. `setBusy`, `render` and the error path all delegate to it; direct `show(dom.results, …)` calls are gone. A render exception is caught and surfaced as `RENDER_FAILED` instead of blanking the canvas. |
+| No horizontal panning | Pass | `html, body { overflow-x: clip }` (scroll container avoided so sticky headers keep working). Rail narrowed 76→64px; context column min 300→280px. Chromium check at 1920/1512/1280px in the results view: `scrollWidth == clientWidth` everywhere, no page errors. |
+| Past dates prevented at the picker | Pass | `#travel-date` gets `min=<local today>` at init plus an inline hint "Today onwards — past dates can't be assessed". |
+| Past dates explained in plain language | Pass | Client guard blocks the request with "*INVALID_DATE: Travel dates in the past cannot be assessed. RouteGuard works from live forecasts and observations…*". API-side, `INVALID_DATE` now returns the human-readable bound ("Travel date 2026-11-14 is before the departure airport's local today (2026-11-16). RouteGuard assesses upcoming travel only: providers are forecast- and observation-based, so past dates cannot be evaluated."). Raw `body.date` field paths moved to the console, out of the visible message. |
+| Mode switch self-documented | Pass | Overview tooltip "Plain-language summary for trip planning"; Analyst tooltip "Raw excerpts, reliability scores and technical detail"; group `aria-label` describes both modes. |
+| Regression coverage | Pass | `python3 -m pytest -q` → **112 passed** (6 new tests: workspace invariant, render containment, client past-date guard, error-message clarity, mode-switch tooltips, overflow clip). |
