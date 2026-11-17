@@ -165,3 +165,46 @@ The user asked to "proceed follow up" on genuine historical support. Provider re
 | Live end-to-end | Pass | Local server, JFK→SFO on 2026-11-14 (2 days back): both providers OK with 4 evidence items (all FRESH), R07_CLEAR / HIGH confidence for a genuinely calm day, coverage note discloses reanalysis + missing NWS/TAF history. Forward run unchanged (NWS OK + AWC OK). |
 | UI | Pass | Date picker min = local today − 7 with hint "Today onwards — or up to 7 days back"; client guard only trips beyond 7 days; coverage badge prefixes `RETROSPECTIVE`; journey basis shows `airport-level retrospective`. Browser run: no JS errors. |
 | Regression coverage | Pass | `python3 -m pytest -q` → **120 passed** (8 new: 2 API bounds, 3 normalization, 1 AWC adapter, 2 service routing; frontend tests updated for the new bounds). |
+
+---
+
+## Addendum — History dataset view, final audit fixes and release verification (17 Nov 2026)
+
+The brief was extended to browse historical datasets beyond the 7-day retrospective
+window, and a second project-wide audit was run before release. This addendum records
+the executed verification, including the dispositions of every audit finding.
+
+### History feature
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| Backend contract | Pass | `GET /api/history?origin=JFK&destination=SFO&start_date=2026-09-18&end_date=2026-09-28` → HTTP 200, 11 daily rows per airport. Provenance: `Open-Meteo Archive API`, `ERA5 reanalysis (model), not observations`, docs URL and `retrieved_at`. First origin row: 28.5 °C max / 22.1 °C min / 0.6 mm / 14.7 km/h / code 51 — real archive values. |
+| No classification leakage | Pass | A case-insensitive scan of the entire 200 payload for `classification`, `severity`, `score`, `confidence`, `risk_level` found **NONE**. History is a dataset view only. |
+| Validation bounds | Pass | Inverted range → 422 `INVALID_DATE`; `end_date` 5 days back → 422 `INVALID_DATE` naming the 6-day lag bound (2026-11-11); 391-day range → 422 `INVALID_DATE`; unknown airport → 422 `INVALID_ROUTE`. All use the uniform envelope. |
+| Missing-day honesty | Pass | Unit tests confirm padded/truncated series carry explicit `null`, rendered as literal "no data" in tables and a hatched empty slot in the SVG chart. No interpolation anywhere in `app/providers/open_meteo_archive.py`. |
+| Partial upstream failure | Pass | Both airports fail → 502 `UPSTREAM_UNAVAILABLE`; one fails → HTTP 200 with `unavailable: true` for that airport only. |
+| Frontend end to end | Pass | Chromium: History pill and context-panel entry button both open the view; JFK/SFO prefilled; client bounds block inverted and too-recent ranges with `INVALID_DATE`; successful fetch renders 11 rows per airport, 22 origin bars and the provenance line; switching back restores the assessment and hides history; no page errors. WebKit/Safari engine: same flow, 11 rows, 22 bars, no overflow and no page errors. |
+
+### Audit findings and dispositions
+
+| # | Severity | Finding / location | Disposition |
+|---|---|---|---|
+| F2 | Medium | Glossary chips in `static/index.html` were buttons with `aria-label` but no click handler — dead controls. | **Fixed.** Wired to `toast()` using the aria definitions. Browser check: first glossary chip surfaces "a routine aviation weather observation issued at an airport." |
+| F3 | Medium | `#drawer-map` in `static/app.js` called `selectEvidence()` while the drawer still covered the map. | **Fixed.** Captures the evidence id, calls `closeDrawer()` first, then selects and scrolls. Browser check: drawer open → click map → drawer closed, evidence still selected, no page errors. |
+| F4 | Low | `state.drawerEvidenceId` referenced but never declared in `static/app.js`. | **Fixed.** Declared at state initialisation. |
+| F5 | Low | `app/providers/awc.py` assigned `role = "origin" if … else "destination"`, then overwrote unknown stations. | **Fixed.** Single `if/elif/else` assigns origin/destination/unknown once. |
+| F6 | Low | Airport-local "today" duplicated in `app/models.py` and `app/service.py`. | **Fixed.** Shared `app/timeutils.py::airport_local_today()`; both modules delegate. Browser check: date `min` = 2026-11-10 before and after assessment. |
+| F7 | Medium | `app/http_client.py` let 3xx responses fall through to JSON parsing, hiding endpoint drift as `MalformedJSON`. | **Fixed.** 300–399 raises `UpstreamError("RedirectDisallowed(<status>)")`; regression test added. |
+| F8 | Low | Retrospective coverage was reported as missing by the audit. | **Rejected.** Tests already existed in `tests/test_adapters.py`, `tests/test_open_meteo.py` and `tests/test_service.py`; no change made. |
+| — | — | A further Low finding on prior-pass toast/marker duplication was re-checked and found already resolved in `c84f12d`. | **No change.** |
+
+### Release regression
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| Full suite | Pass | `python3 -m pytest -q` → **136 passed, 1 warning** (upstream Starlette/httpx deprecation notice only). |
+| Live forward assessment | Pass | JFK→SFO on a future date → HTTP 200, `assessment_mode: forward`; NWS points/alerts/gridpoint and AWC METAR/TAF all returned HTTP 200. On a date outside the provider horizon the honest result is `INDETERMINATE/LOW`, never "all clear". |
+| Live retrospective assessment | Pass | JFK→SFO two days back → HTTP 200, `assessment_mode: retrospective`, `HIGH/HIGH`, 19 AWC METAR + 2 Open-Meteo retrospective evidence items, AWC `date=…T05:00:00Z&hours=25` and Open-Meteo `past_days=7`. |
+| Sandbox networking note | Pass | A detached shell process could not reach the egress proxy (`Connection refused os error 61`). Foreground `httpx` and the managed server both returned HTTP 200 from the archive, so this was an environment artifact, not an application defect. Live verification used the managed server and in-process `TestClient`. |
+| Browser regression | Pass | 28 checks in Chromium covering empty state, no horizontal overflow, forward assessment, Analyst/Overview switch, command palette open/Escape, glossary toast, context entry into History, client validation, provenance, tables, SVG bars, view restoration and zero page errors. Two initial harness failures were corrected: `[data-view=history]` also matched `<body>`, and Inspect is intentionally disabled until evidence is selected (21 evidence cards → drawer opens and closes correctly). |
+| Cross-engine | Pass | WebKit/Safari engine smoke test of the History flow: 11 rows, 22 bars, no overflow, no page errors. |

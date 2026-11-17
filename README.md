@@ -25,6 +25,17 @@ retrospective data is model reanalysis, not a station observation, and carries
 MEDIUM reliability. Freshness for a retrospective run is judged relative to the
 assessed day, so evidence generated during that day is not penalised as stale.
 
+**History view:** dates older than the 7-day retrospective window are available as
+a data-browsing view, not an assessment. `GET /api/history?origin=&destination=&start_date=&end_date=`
+returns up to 366 days of daily Open-Meteo Archive ERA5 **reanalysis (model, not
+observations)** for both airports; the archive publishes ~6 days behind today.
+The UI adds a History pill and a "View historical conditions" button in the
+context panel that prefills the assessed route. Each airport renders a daily
+table plus precipitation/wind bars, missing fields render literally as "no data"
+(never interpolated), and provenance is always visible. The history response
+contains no classification, severity, confidence or score. See
+`docs/06_history_prd.md` for the increment's PRD.
+
 **Current focus and global extension:** the original brief focused on the United
 States. That remains the default: 48 curated US airports assessed with NWS + AWC.
 The prototype now also covers 27 curated airports in 25 other countries/regions
@@ -49,7 +60,9 @@ python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8765
 Then open <http://127.0.0.1:8765/>. No build step, no frontend dependencies, no
 API keys. `GET /api/health` returns `{"status":"ok"}`; `GET /api/airports` returns
 the curated registry that backs the UI autocomplete; `POST /api/assess` accepts
-`{"origin":"New York","destination":"San Francisco","date":"YYYY-MM-DD"}`.
+`{"origin":"New York","destination":"San Francisco","date":"YYYY-MM-DD"}`;
+`GET /api/history` accepts `origin`, `destination`, `start_date` and `end_date`
+query parameters and returns the daily archive dataset.
 
 ### Vercel deployment
 
@@ -87,7 +100,15 @@ the visual centrepiece, not a decorative thumbnail.
   TAF, confidence and coverage without hiding evidence.
 - **View pills:** All, Routes, Weather, Airport Operations, Aviation Advisories and
   High Priority filter real evidence and map visibility. Empty views explain what is
-  unavailable rather than inventing data.
+  unavailable rather than inventing data. The separate **History** pill switches the
+  workspace to the year-deep archive view; switching back restores the last assessment
+  unchanged.
+- **History workspace:** a toolbar with origin/destination chips, start/end date
+  inputs and a Fetch button; one per-airport panel with a daily table and SVG
+  precipitation/wind bars; and a persistent "ERA5 reanalysis (model), not observations"
+  provenance line linking to the Archive API docs. Client-side bounds mirror the
+  backend (~6-day publication lag, 366-day maximum span) and the API remains the
+  authority. A partial upstream failure shows "no data" for that airport only.
 - **Motion:** staggered entrance, card hover/selection, map focus transitions,
   marker emphasis, filter/timeline transitions, drawer/panel motion and honest
   skeleton states are implemented. Refresh preserves the previous assessment and
@@ -119,7 +140,7 @@ URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap
 1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
 real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
 enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
-Current result: **120 passed**.
+Current result: **136 passed**.
 
 ### Robustness hardening (post-audit)
 
@@ -145,6 +166,24 @@ the API returns a human-readable `INVALID_DATE` message naming the airport-local
 bound instead of a generic validation banner. The Overview/Analyst switch
 documents itself via tooltips (Overview = plain language; Analyst = raw
 excerpts, reliability and technical detail).
+
+### Final audit pass (17 November 2026)
+
+A second full-project audit reported eight findings; seven were fixed with
+regression tests and one (allegedly missing retrospective tests) was rejected on
+inspection because coverage already existed. The fixes: glossary chips now surface
+their definitions through the shared
+toast instead of being dead buttons; "Show on map" closes the evidence drawer before
+scrolling and captures the evidence id before `closeDrawer()` clears it; the date
+picker's minimum tracks the assessed origin airport's IANA timezone via a shared
+`airport_local_today()` helper in `app/timeutils.py` (unknown zones fall back to UTC);
+upstream 3xx responses now raise an explicit `RedirectDisallowed(<status>)` instead of
+drifting into a generic JSON parse error; AWC airport roles are assigned once with
+`if/elif/else` rather than overwritten; and the drawer's evidence id is declared in
+state — the rejected finding's coverage was already in `test_adapters.py`,
+`test_open_meteo.py` and `test_service.py`. A browser regression run covered the forward, retrospective and history flows, the
+command palette, evidence drawer, glossary toasts and view switching in both Chromium
+and WebKit with no page errors.
 
 ## Dependencies
 
@@ -283,8 +322,8 @@ no AI-derived classification.
 
 ## Delivery manifest
 
-Application: `app/{__init__,main,config,models,airports.json,cities,http_client,logging,normalize,risk,service}.py`, `app/providers/{__init__,base,nws,awc,open_meteo}.py`.
+Application: `app/{__init__,main,config,models,airports.json,cities,http_client,logging,normalize,risk,service,history,timeutils}.py`, `app/providers/{__init__,base,nws,awc,open_meteo,open_meteo_archive}.py`.
 Deployment: `api/index.py`, `vercel.json`, `.vercelignore`, `.gitignore`.
 Frontend: `static/{index.html,styles.css,app.js,favicon.svg,apple-touch-icon.png,og-image.png}`.
-Tests: `tests/{__init__,conftest,test_cities,test_normalize,test_adapters,test_risk,test_api,test_open_meteo,test_seo,test_frontend}.py` and `tests/fixtures/*.json`.
-Dependencies/docs: `requirements.txt`, this README, and `docs/00_PRD.md` … `docs/05_CONFIGURATION.md` (including QA reports).
+Tests: `tests/{__init__,conftest,test_cities,test_normalize,test_adapters,test_risk,test_api,test_open_meteo,test_service,test_history,test_seo,test_frontend}.py` and `tests/fixtures/*.json`.
+Dependencies/docs: `requirements.txt`, this README, and `docs/00_PRD.md` … `docs/06_history_prd.md` (including QA reports).
