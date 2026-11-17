@@ -59,7 +59,7 @@ class HistoryService:
             destination_airport = self._registry.resolve(destination)
         except CityLookupError as exc:
             raise RouteInputError(
-                "INVALID_ROUTE",
+                CityLookupError.code,
                 str(exc),
                 {"query": exc.query, "hint": "Use a curated city name or IATA code."},
             ) from exc

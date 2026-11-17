@@ -110,6 +110,14 @@ class AssessRequest(BaseModel):
         """
         origin_value = info.data.get("origin")
         origin = origin_value if isinstance(origin_value, str) else None
+        # An unmapped origin cannot supply an airport-local bound. Return the
+        # date unchecked so the service can report UNMAPPED_CITY instead of a
+        # date error masking the more actionable route problem.
+        if origin:
+            try:
+                _ORIGIN_REGISTRY.resolve(origin)
+            except CityLookupError:
+                return value
         today = _origin_local_today(origin)
         if value < today - timedelta(days=RETROSPECTIVE_COVERAGE_DAYS):
             raise ValueError(

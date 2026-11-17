@@ -34,7 +34,7 @@ CONFIDENCE_RANK: dict[str, int] = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
 RULE_DESCRIPTIONS: dict[str, str] = {
     "R01_NO_COVERAGE": "No eligible trustworthy evidence, or all providers failed.",
     "R02_UNVERIFIED_GUARD": "Unverified extreme evidence present; CRITICAL is forbidden.",
-    "R03_CRITICAL": "Trustworthy extreme evidence corroborated by both providers.",
+    "R03_CRITICAL": "Extreme trustworthy evidence with moderate-or-higher evidence from both providers.",
     "R04_HIGH": "Trustworthy extreme or high-reliability severe evidence present.",
     "R05_ELEVATED": "Trustworthy moderate or downgraded moderate-or-higher evidence present.",
     "R06_LOW": "Limited moderate evidence or corroborated minor evidence present.",

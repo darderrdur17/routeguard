@@ -227,3 +227,59 @@ fixed and re-verified.
 | Loading / empty / error / success | Pass | 32 targeted browser checks: empty state and hidden panels on entry; "Loading daily ERA5 reanalysis for JFK → SFO…" spinner with disabled Fetch while the request is delayed; success clears loading/empty, reveals panels, provenance and 11 real rows; a mocked 502 clears panels, surfaces `UPSTREAM_UNAVAILABLE` and explains "No history loaded." in the empty state. No page errors. |
 | Cross-engine regression | Pass | 42 checks across Chromium and WebKit: initial empty state, no horizontal overflow, retrospective assessment, evidence selection and drawer, "Show on map", command palette, glossary toast, History entry, cutoff warning, successful fetch and restoration of the assessment on switching back. All passed with zero page errors. |
 | Static contract + suite | Pass | Three new tests in `tests/test_frontend.py` cover UTC bounds, the shared validator, explicit state transitions and route/default prefills. `python3 -m pytest -q` → **139 passed, 1 warning**; `node --check static/app.js` clean. |
+
+---
+
+## Addendum — final pre-submission audit (17 Nov 2026)
+
+Three independent auditors (security/repository, frontend interaction, backend
+correctness) reviewed the committed application read-only, while the lead executed
+the original Red Alpha demonstration and browser sweeps. Every reported issue is
+listed below with its disposition. No Critical or High defect was found.
+
+### Findings and dispositions
+
+| # | Sev | Location | Finding and disposition |
+|---|---|---|---|
+| A1 | Medium | `static/app.js` `handleNav()` | Five rail items scrolled into `#results` while it was hidden before the first assessment. **Fixed:** hidden result targets now scroll to the form and explain "Run an assessment first"; a rail click from the History workspace restores the assessment view. Browser check: four sections show the toast, History exits cleanly. |
+| A2 | Low–Med | `app/history.py:61-65` vs `app/service.py` | An unmapped city returned `UNMAPPED_CITY` on `/api/assess` but `INVALID_ROUTE` on `/api/history`. **Fixed:** both use `UNMAPPED_CITY`; two regression tests added. |
+| A3 | Low–Med | `app/main.py` service error handler | Service-raised 422 envelopes had `details: null` while Pydantic errors had `details.errors`. **Fixed:** every service 422 now carries a normalised `errors` array; regression test added. |
+| A4 | Low | `app/models.py` date validator | An unmapped origin plus an invalid date returned `INVALID_DATE`, masking the route problem. **Fixed:** the date bound is skipped when the origin cannot be resolved, so the service reports `UNMAPPED_CITY`. |
+| A5 | Low | `app/risk.py:37`, `app/normalize.py`, `app/providers/open_meteo.py` | R03 text overstated corroboration; retrospective peak wind/precip were stamped with the worst-hour time without a "peak" label. **Fixed:** rule text now says "moderate-or-higher evidence from both providers"; signal text says "peak wind"/"peak precip"; unit test added. |
+| A6 | Low | `static/app.js` palette | `role="listbox"` children lacked `role="option"`/`aria-selected`; the trigger never toggled `aria-expanded`. **Fixed:** both are now maintained by the renderer, keyboard mover and open/close handlers. |
+| A7 | Low | `static/index.html:575` | Drawer source link used placeholder `href="#"`. **Fixed:** valid HTTPS default; JS still applies `safeUrl` with `noopener noreferrer`. |
+| A8 | Low | `static/app.js` SVG fallback wheel | Ordinary wheel over the fallback map trapped page scrolling. **Fixed:** zoom now requires Ctrl/Cmd; normal wheel scrolls the page. |
+| A9 | Low | MapLibre attribution control | Library-injected external links lacked `rel=noopener`. **Fixed:** links are hardened on map load; required attribution retained. |
+| A10 | Low | `app/history.py` vs `models.py` | History bound uses UTC "today" while assessment uses origin-local "today". **Accepted:** ERA5 archive daily data is published on a UTC calendar; this is documented, not a defect. |
+| A11 | Info | `app/models.py` | No hard future date maximum; far-future dates return `INDETERMINATE` with a coverage note. **Accepted by design** — honest uncertainty rather than a false reassurance or arbitrary cutoff. |
+
+### Original brief compliance (executed evidence)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| US route + date input | Pass | 75 curated airports; `POST /api/assess` with New York → San Francisco, tomorrow returned HTTP 200 with full JFK/SFO resolution and true coordinates. |
+| Multiple external sources | Pass | Live calls to NWS points/alerts/gridpoint (HTTP 200), AWC METAR/TAF (HTTP 200), Open-Meteo forward and archive/reanalysis; source URLs, statuses and fetched-at timestamps in every response. |
+| Combined information | Pass | One normalized evidence ledger with typed severity, reliability, geography, temporal overlap, freshness and provenance; no provider output is merely pasted. |
+| Disruption assessment | Pass | Deterministic R01–R08 / C01–C05 decision table; the calm live example correctly returned `INDETERMINATE/LOW` with an explicit no-coverage recommendation rather than inventing a disruption. A past-date run returned `HIGH/HIGH` from 21 real evidence items. |
+| Supporting evidence | Pass | Evidence drawer, timeline, cards and map markers share evidence IDs; source URLs and raw excerpts are inspectable. |
+| Recommended action | Pass | Every non-R01/R08 recommendation links evidence IDs; `check_invariants` enforces this. |
+| Working prototype | Pass | Full browser workflows, History flow, dialogs, palette, map layers/markers, refresh and responsive layouts exercised. |
+| Demonstration readiness | Pass | README, PRD, architecture, API notes, QA reports and ZIP all present and verified. |
+
+### Verification executed for this audit
+
+| Check | Result |
+|---|---|
+| Full suite | `python3 -m pytest -q` → **148 passed, 1 warning** (upstream Starlette/httpx deprecation only). |
+| JS syntax | `node --check static/app.js` clean. |
+| Interaction sweep | 39/39 browser checks: all 7 rail items, 7 view pills, both mode buttons, swap, refresh, map controls, 4 glossary terms, command palette, Glossary/Escape/reduced motion, 390/820/1440px overflow and zero page errors. |
+| Page/asset loading | `/`, `/docs`, `/redoc`, `/openapi.json`, `/robots.txt`, `/sitemap.xml`, `/static/app.js`, `/static/styles.css`, all referenced icons → HTTP 200; `/static/index.html` → 307 `/`; unknown API route → uniform 404 envelope. |
+| Security | No secrets in the working tree or any of 11 git revisions; GitHub repository public; ZIP has no `.env`/`.git`/secrets and matches `git ls-files`. |
+| Live demonstration | New York → San Francisco resolved JFK/SFO; two providers contacted; calm conditions produced honest `INDETERMINATE`; retrospective run produced real evidence; edge cases (same airport, unknown city, 7-day bound, max date, malformed JSON, 404/405) all returned correct envelopes. |
+
+**Final release decision: READY TO SUBMIT**, with the documented limitations above. The
+original Red Alpha user journey works end to end, is honest about uncertainty, and is
+backed by real external data. The candidate must personally submit the ZIP to
+`info@redalphacyber.com` with subject `FDE Assessment - [Your Name]`; this report does
+not claim submission has occurred. The original Singapore physical-presence condition
+applies only if the candidate passes and remains the candidate's own decision.

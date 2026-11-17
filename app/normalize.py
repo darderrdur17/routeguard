@@ -622,14 +622,16 @@ class Normalizer:
                 )
                 return
             precip = as_float(record.get("precipitation"))
+            # The time below is the most severe model hour; wind and
+            # precipitation are whole-day peaks and may occur at other hours.
             signal = (
                 f"WMO {record.get('weather_code', '?')} · "
-                f"wind {record.get('wind_speed_10m', '?')} km/h · "
-                f"precip {record.get('precipitation', '?')} mm/h"
+                f"peak wind {record.get('wind_speed_10m', '?')} km/h · "
+                f"peak precip {record.get('precipitation', '?')} mm/h"
                 if precip is not None
                 else (
                     f"WMO {record.get('weather_code', '?')} · "
-                    f"wind {record.get('wind_speed_10m', '?')} km/h"
+                    f"peak wind {record.get('wind_speed_10m', '?')} km/h"
                 )
             )
         else:

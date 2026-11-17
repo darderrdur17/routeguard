@@ -732,6 +732,12 @@
       state.map.on("load", function () {
         state.mapReady = true;
         document.body.classList.add("maplibre-ready");
+        // MapLibre's attribution control injects target=_blank links without a
+        // rel attribute. Harden them instead of dropping required attribution.
+        Array.prototype.forEach.call(
+          document.querySelectorAll(".maplibregl-ctrl-attrib a[target='_blank']"),
+          function (link) { link.setAttribute("rel", "noopener noreferrer"); }
+        );
         if (state.current) renderMap(state.current);
       });
       state.map.on("error", function () {
@@ -1886,6 +1892,11 @@
   /* ---------- navigation ---------- */
 
   function handleNav(section) {
+    // Rail clicks must also work from the History workspace; otherwise the
+    // target is hidden by body[data-view="history"] and nothing appears to move.
+    if (document.body.getAttribute("data-view") === "history" && section !== "overview") {
+      applyView("all");
+    }
     Array.prototype.forEach.call(document.querySelectorAll(".rail-item[data-nav]"), function (node) {
       var active = node.getAttribute("data-nav") === section;
       node.classList.toggle("is-active", active);
@@ -1904,6 +1915,12 @@
     } else if (section === "help") {
       toast("Glossary terms are in the methodology panel.");
       target = document.getElementById("glossary");
+    }
+    // Result-panel targets are hidden before the first assessment. Scroll to
+    // the form and explain instead of silently scrolling into a hidden node.
+    if (target && dom.results.contains(target) && !state.current) {
+      toast("Run an assessment first — this section fills in once a route is checked.");
+      target = dom.form;
     }
     if (target) target.scrollIntoView({ block: "start", behavior: reducedMotion() ? "auto" : "smooth" });
   }
@@ -1955,6 +1972,8 @@
     paletteItems.forEach(function (command, index) {
       var button = el("button", "palette-item" + (index === 0 ? " is-active" : ""));
       button.type = "button";
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(index === 0));
       button.appendChild(el("span", "", command.label));
       button.appendChild(el("small", "", command.hint));
       button.addEventListener("click", function () { runPaletteCommand(index); });
@@ -1974,10 +1993,12 @@
     paletteIndex = (paletteIndex + delta + paletteItems.length) % paletteItems.length;
     Array.prototype.forEach.call(dom.paletteResults.querySelectorAll(".palette-item"), function (node, index) {
       node.classList.toggle("is-active", index === paletteIndex);
+      node.setAttribute("aria-selected", String(index === paletteIndex));
     });
   }
 
   function openPalette() {
+    dom.paletteOpen.setAttribute("aria-expanded", "true");
     show(dom.paletteOverlay, true);
     show(dom.palette, true);
     dom.paletteInput.value = "";
@@ -1987,6 +2008,7 @@
   }
 
   function closePalette() {
+    dom.paletteOpen.setAttribute("aria-expanded", "false");
     show(dom.palette, false);
     show(dom.paletteOverlay, false);
     releaseDialogFocus();
@@ -2137,6 +2159,9 @@
   });
   dom.map.addEventListener("pointerup", function () { dragging = false; dragStart = null; });
   dom.map.addEventListener("wheel", function (event) {
+    // Do not trap ordinary page scrolling. Wheel zoom on the SVG fallback
+    // requires Ctrl/Cmd, matching the modifier convention for embedded maps.
+    if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     zoomFallback(event.deltaY < 0 ? 0.16 : -0.16);
   }, { passive: false });

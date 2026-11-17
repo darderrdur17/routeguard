@@ -195,3 +195,30 @@ def test_retrospective_metar_is_trustworthy_for_the_assessed_day() -> None:
     assert item.freshness == "FRESH"
     assert item.reliability == "HIGH"
     assert item.geography == "EXACT"
+
+
+def test_retrospective_signal_labels_window_peaks_honestly() -> None:
+    """Wind/precipitation are day peaks, not values from the flagged hour."""
+    record = {
+        "time": "2026-11-16T06:00:00Z",
+        "weather_code": 0,
+        "wind_speed_10m": 42.0,
+        "precipitation": 12.0,
+        "temperature_2m": 18.0,
+    }
+    normalizer = Normalizer(now=NOW, retrospective=True)
+    result = normalizer.normalize(
+        [
+            {
+                "_provider": "OPEN_METEO",
+                "_signal": "OPEN_METEO_RETROSPECTIVE",
+                "_source_url": "https://api.open-meteo.com/v1/forecast",
+                "_role": "origin",
+                "record": record,
+            }
+        ],
+        WINDOW,
+    )
+    assert result.evidence
+    assert "peak wind 42.0 km/h" in result.evidence[0].signal
+    assert "peak precip 12.0 mm/h" in result.evidence[0].signal

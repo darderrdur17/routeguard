@@ -152,13 +152,20 @@ async def route_input_error_handler(
     request: Request, exc: RouteInputError
 ) -> JSONResponse:
     """Map unmapped cities and other input-resolution failures to 422."""
+    # Keep the documented four-field envelope but give service-raised errors
+    # the same machine-readable ``errors`` array that Pydantic validation gets.
+    details = exc.details
+    if not isinstance(details, dict) or "errors" not in details:
+        normalized = dict(details) if isinstance(details, dict) else {}
+        normalized["errors"] = [{"field": "request", "message": exc.message}]
+        details = normalized
     emit("request_rejected", request_id=_request_id(request), code=exc.code)
     return _error_response(
         code=exc.code,
         message=exc.message,
         request_id=_request_id(request),
         status_code=422,
-        details=exc.details,
+        details=details,
     )
 
 

@@ -153,8 +153,8 @@ def test_start_after_end_is_rejected() -> None:
     _assert_envelope(response.json(), "INVALID_DATE")
 
 
-def test_unknown_airport_is_rejected_with_invalid_route() -> None:
-    """A query outside the curated registry stays an INVALID_ROUTE."""
+def test_unknown_airport_is_rejected_consistently_with_assess() -> None:
+    """An unmapped city yields UNMAPPED_CITY on both endpoints."""
     client = TestClient(main_module.app)
     response = get_history(
         client,
@@ -164,7 +164,7 @@ def test_unknown_airport_is_rejected_with_invalid_route() -> None:
         end_date=HAPPY_END.isoformat(),
     )
     assert response.status_code == 422
-    _assert_envelope(response.json(), "INVALID_ROUTE")
+    _assert_envelope(response.json(), "UNMAPPED_CITY")
 
 
 def test_malformed_query_dates_map_to_invalid_date() -> None:
@@ -345,3 +345,33 @@ def test_adapter_failure_block_is_redacted() -> None:
     assert block["detail"] == "HTTPError(status=500)"
     assert block["daily"] is None and block["daily_units"] is None
     assert block["iata"] == "JFK" and block["city"] == JFK.city
+
+
+def test_service_validation_errors_include_the_errors_array() -> None:
+    """History date-bound failures share the validation envelope shape."""
+    client = TestClient(main_module.app)
+    response = get_history(
+        client,
+        origin="JFK",
+        destination="SFO",
+        start_date=LAG_BOUND.isoformat(),
+        end_date=LAG_BOUND.isoformat(),
+    )
+    assert response.status_code == 200 or response.status_code == 422
+    if response.status_code == 422:
+        body = response.json()
+        assert isinstance(body["details"]["errors"], list)
+
+
+def test_unmapped_origin_in_history_uses_unmapped_city_code() -> None:
+    """History and assessment agree on the error code for an unknown city."""
+    client = TestClient(main_module.app)
+    response = get_history(
+        client,
+        origin="Atlantis",
+        destination="SFO",
+        start_date=HAPPY_START.isoformat(),
+        end_date=HAPPY_END.isoformat(),
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "UNMAPPED_CITY"

@@ -210,3 +210,35 @@ def test_date_validation_uses_origin_timezone() -> None:
     assert _origin_local_today("JFK") == datetime.now(JFK_ZONE).date()
     request = AssessRequest(origin="JFK", destination="SFO", date=_local_today())
     assert request.date == _local_today()
+
+
+def test_unmapped_origin_wins_over_an_invalid_date() -> None:
+    """The actionable route error is reported before the secondary date error."""
+    from fastapi.testclient import TestClient
+
+    import app.main as main_module
+
+    client = TestClient(main_module.app)
+    response = client.post(
+        "/api/assess",
+        json={"origin": "Atlantis", "destination": "SFO", "date": "2000-01-01"},
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "UNMAPPED_CITY"
+
+
+def test_service_errors_carry_the_same_errors_array_as_validation() -> None:
+    """Every 422 envelope exposes a machine-readable details.errors list."""
+    from fastapi.testclient import TestClient
+
+    import app.main as main_module
+
+    client = TestClient(main_module.app)
+    response = client.post(
+        "/api/assess",
+        json={"origin": "New York", "destination": "New York", "date": "2030-01-01"},
+    )
+    body = response.json()
+    assert response.status_code == 422
+    assert isinstance(body["details"]["errors"], list)
+    assert body["details"]["errors"][0]["message"] == body["message"]

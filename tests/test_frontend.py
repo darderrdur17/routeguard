@@ -309,3 +309,37 @@ def test_history_route_and_default_range_are_prefilled_for_the_active_route() ->
     assert 'class="history-route"' in INDEX
     assert "Active route origin" in APP
     assert "Active route destination" in APP
+
+
+def test_rail_navigation_explains_hidden_sections_before_assessment() -> None:
+    """Rail items must not silently scroll into hidden result panels."""
+    assert "if (target && dom.results.contains(target) && !state.current)" in APP
+    assert "Run an assessment first" in APP
+    assert 'document.body.getAttribute("data-view") === "history"' in APP
+    assert "applyView(\"all\")" in APP
+
+
+def test_palette_and_source_link_accessibility_are_complete() -> None:
+    """Dialog trigger state, option roles and the source link are honest."""
+    assert 'aria-expanded="false"' in INDEX
+    assert 'aria-controls="command-palette"' in INDEX
+    assert 'dom.paletteOpen.setAttribute("aria-expanded", "true");' in APP
+    assert 'dom.paletteOpen.setAttribute("aria-expanded", "false");' in APP
+    assert 'button.setAttribute("role", "option");' in APP
+    assert 'button.setAttribute("aria-selected", String(index === 0));' in APP
+    assert 'node.setAttribute("aria-selected", String(index === paletteIndex));' in APP
+    assert 'id="drawer-source"' in INDEX
+    assert 'href="https://' in INDEX
+    assert 'href="#"' not in INDEX
+
+
+def test_fallback_map_wheel_does_not_trap_page_scrolling() -> None:
+    """Only Ctrl/Cmd+wheel zooms the SVG fallback; ordinary wheel scrolls the page."""
+    assert "if (!event.ctrlKey && !event.metaKey) return;" in APP
+    assert "zoomFallback(event.deltaY < 0 ? 0.16 : -0.16);" in APP
+
+
+def test_maplibre_injected_attribution_links_are_hardened() -> None:
+    """Library-injected external links also get noopener noreferrer."""
+    assert ".maplibregl-ctrl-attrib a[target='_blank']" in APP
+    assert 'link.setAttribute("rel", "noopener noreferrer");' in APP
