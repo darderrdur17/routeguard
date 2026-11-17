@@ -40,6 +40,7 @@ SIGNAL_LABELS: dict[str, str] = {
     "AWC_TAF": "TAF forecast group",
     "OPEN_METEO_CURRENT": "Open-Meteo current condition",
     "OPEN_METEO_HOURLY": "Open-Meteo hourly forecast",
+    "OPEN_METEO_RETROSPECTIVE": "Open-Meteo retrospective condition (model)",
 }
 
 
@@ -321,10 +322,15 @@ class Normalizer:
         self,
         now: datetime | None = None,
         locations: dict[str, tuple[str, float, float]] | None = None,
+        retrospective: bool = False,
     ) -> None:
         self._now = now or utc_now()
         # role -> (label, latitude, longitude), built from the curated registry.
         self._locations = locations or {}
+        # In retrospective mode freshness is judged relative to the assessed
+        # travel day (evidence generated during that day is fresh for that
+        # day), not relative to the current wall clock.
+        self._retrospective = retrospective
 
     def normalize(
         self, payloads: list[dict[str, Any]], window: dict[str, datetime]
@@ -363,7 +369,11 @@ class Normalizer:
             self._awc_metar(envelope, record, window, result)
         elif signal_type == "AWC_TAF":
             self._awc_taf(envelope, record, window, result)
-        elif signal_type in {"OPEN_METEO_CURRENT", "OPEN_METEO_HOURLY"}:
+        elif signal_type in {
+            "OPEN_METEO_CURRENT",
+            "OPEN_METEO_HOURLY",
+            "OPEN_METEO_RETROSPECTIVE",
+        }:
             self._open_meteo(envelope, record, window, result, signal_type)
         else:
             result.add_note(provider, f"Malformed record with unknown signal {signal_type}.")
@@ -400,6 +410,22 @@ class Normalizer:
             "EXACT" if envelope.get("_role") in {"origin", "destination"} else "UNKNOWN"
         )
         overlap = temporal_overlap(valid_from, valid_to, window)
+        if self._retrospective:
+            # Freshness for a past travel day: evidence generated inside the
+            # assessed window describes that day and is fresh for it.
+            ref = freshness_ref if freshness_ref is not None else observed_at
+            if ref is None:
+                fresh: Freshness = "UNKNOWN"
+            elif window["start"] <= ref <= window["end"]:
+                fresh = "FRESH"
+            else:
+                fresh = "STALE"
+        else:
+            fresh = freshness(
+                freshness_ref if freshness_ref is not None else observed_at,
+                signal_type,
+                self._now,
+            )
         location = self._locations.get(str(envelope.get("_role", "")))
         item = Evidence(
             id=evidence_id(provider, signal_type, source_url, signal, valid_from),
@@ -410,11 +436,7 @@ class Normalizer:
             reliability=reliability,
             geography=geography,
             temporal_overlap=overlap,
-            freshness=freshness(
-                freshness_ref if freshness_ref is not None else observed_at,
-                signal_type,
-                self._now,
-            ),
+            freshness=fresh,
             observed_at=observed_at,
             valid_from=valid_from,
             valid_to=valid_to,
@@ -577,7 +599,7 @@ class Normalizer:
         result: NormalizationResult,
         signal_type: str,
     ) -> None:
-        """Normalize one Open-Meteo current or hourly record."""
+        """Normalize one Open-Meteo current, hourly or retrospective record."""
         is_current = signal_type == "OPEN_METEO_CURRENT"
         if is_current:
             severity = open_meteo_current_severity(record)
@@ -588,6 +610,27 @@ class Normalizer:
             signal = (
                 f"WMO {record.get('weather_code', '?')} · "
                 f"wind {record.get('wind_speed_10m', '?')} km/h"
+            )
+        elif signal_type == "OPEN_METEO_RETROSPECTIVE":
+            # One retrospective summary record per airport: the most severe
+            # hour observed (model reanalysis) inside the assessed window.
+            severity = open_meteo_current_severity(record)
+            observed = parse_instant(record.get("time"))
+            if observed is None:
+                result.add_note(
+                    "OPEN_METEO", "Malformed Open-Meteo retrospective time skipped."
+                )
+                return
+            precip = as_float(record.get("precipitation"))
+            signal = (
+                f"WMO {record.get('weather_code', '?')} · "
+                f"wind {record.get('wind_speed_10m', '?')} km/h · "
+                f"precip {record.get('precipitation', '?')} mm/h"
+                if precip is not None
+                else (
+                    f"WMO {record.get('weather_code', '?')} · "
+                    f"wind {record.get('wind_speed_10m', '?')} km/h"
+                )
             )
         else:
             severity = open_meteo_hourly_severity(record)

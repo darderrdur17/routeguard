@@ -69,24 +69,38 @@ def test_health_is_live(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_past_date_is_rejected_with_invalid_date_envelope(
+def test_recent_past_date_is_accepted_for_retrospective_assessment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A date before JFK's local today never reaches the provider layer."""
+    """Dates inside the 7-day retrospective window validate and reach the service."""
     client, calls = _client(monkeypatch)
-    yesterday = (_local_today() - timedelta(days=1)).isoformat()
+    recent = (_local_today() - timedelta(days=2)).isoformat()
     response = client.post(
         "/api/assess",
-        json={"origin": "JFK", "destination": "SFO", "date": yesterday},
+        json={"origin": "JFK", "destination": "SFO", "date": recent},
+    )
+    assert response.status_code == 200
+    assert len(calls) == 1
+
+
+def test_far_past_date_is_rejected_with_invalid_date_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dates older than the retrospective window are rejected with the real bound."""
+    client, calls = _client(monkeypatch)
+    far_past = (_local_today() - timedelta(days=30)).isoformat()
+    response = client.post(
+        "/api/assess",
+        json={"origin": "JFK", "destination": "SFO", "date": far_past},
     )
     assert response.status_code == 422
     body = response.json()
     _assert_error_envelope(body, "INVALID_DATE", "body.date")
-    assert "local today" in body["details"]["errors"][0]["message"]
-    # The top-level message is human-readable and explains why past dates
-    # cannot be assessed instead of a generic validation banner.
-    assert "local today" in body["message"]
-    assert "past dates cannot be evaluated" in body["message"]
+    assert "Retrospective coverage extends 7 days" in body["message"]
+    assert (
+        "Retrospective coverage extends 7 days"
+        in body["details"]["errors"][0]["message"]
+    )
     assert calls == []
 
 

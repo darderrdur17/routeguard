@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from app.cities import Airport, CityLookupError, CityRegistry
 from app.config import (
     DESTINATION_WINDOW_ASSUMPTION,
+    RETROSPECTIVE_ASSUMPTION,
+    RETROSPECTIVE_SOURCE_LIMITS_ASSUMPTION,
     WEATHER_NOT_OPERATIONS_ASSUMPTION,
     WHOLE_DAY_ASSUMPTION,
     air_travel_scope,
@@ -54,6 +56,15 @@ class RouteInputError(Exception):
 def weather_provider_name(origin: Airport) -> str:
     """Return the weather provider available for the departure country."""
     return "NWS" if origin.country == "United States" else "OPEN_METEO"
+
+
+def origin_local_today(airport: Airport) -> date:
+    """Return the airport's local calendar date right now."""
+    instant = datetime.now(timezone.utc)
+    try:
+        return instant.astimezone(ZoneInfo(airport.timezone)).date()
+    except ZoneInfoNotFoundError:
+        return instant.date()
 
 
 class AssessmentService:
@@ -142,17 +153,33 @@ class AssessmentService:
 
         generated_at = utc_now()
         window = self._travel_window(origin, request.date)
+        # A travel date before the departure airport's local today is a
+        # retrospective assessment: historical METAR observations and
+        # recent-past model hours replace the forward-looking providers. NWS
+        # has no documented historical feed, so both route kinds use the same
+        # global retrospective pair.
+        retrospective = request.date < origin_local_today(origin)
 
         async with HTTPClient(request_id=request_id) as client:
             # NWS is authoritative only for US points. Elsewhere use Open-Meteo,
             # a free no-key provider; AWC aviation weather remains international.
-            weather_provider = weather_provider_name(origin)
-            weather_adapter: ProviderAdapter = (
-                NWSAdapter(client)
-                if weather_provider == "NWS"
-                else OpenMeteoAdapter(client)
-            )
-            adapters: list[ProviderAdapter] = [weather_adapter, AWCAdapter(client)]
+            if retrospective:
+                weather_provider = "OPEN_METEO"
+                weather_adapter: ProviderAdapter = OpenMeteoAdapter(
+                    client, retrospective=True
+                )
+                adapters: list[ProviderAdapter] = [
+                    weather_adapter,
+                    AWCAdapter(client, retrospective=True),
+                ]
+            else:
+                weather_provider = weather_provider_name(origin)
+                weather_adapter = (
+                    NWSAdapter(client)
+                    if weather_provider == "NWS"
+                    else OpenMeteoAdapter(client)
+                )
+                adapters = [weather_adapter, AWCAdapter(client)]
             outcomes = await asyncio.gather(
                 *(
                     adapter.fetch(origin, destination, window)
@@ -183,9 +210,9 @@ class AssessmentService:
                 destination.lon,
             ),
         }
-        normalization = Normalizer(now=generated_at, locations=locations).normalize(
-            payloads, window
-        )
+        normalization = Normalizer(
+            now=generated_at, locations=locations, retrospective=retrospective
+        ).normalize(payloads, window)
         evidence: list[Evidence] = normalization.evidence
         self._apply_normalization_notes(
             provider_status, normalization.notes, normalization.degraded
@@ -218,7 +245,9 @@ class AssessmentService:
             "destination_timezone": destination.timezone,
             "destination_lat": f"{destination.lat:.4f}",
             "destination_lon": f"{destination.lon:.4f}",
-            "basis": "airport-level",
+            "basis": (
+                "airport-level retrospective" if retrospective else "airport-level"
+            ),
             "weather_provider": weather_provider,
             "coverage_focus": origin.country,
         }
@@ -228,6 +257,9 @@ class AssessmentService:
             DESTINATION_WINDOW_ASSUMPTION,
             WEATHER_NOT_OPERATIONS_ASSUMPTION,
         ]
+        if retrospective:
+            assumptions.append(RETROSPECTIVE_ASSUMPTION)
+            assumptions.append(RETROSPECTIVE_SOURCE_LIMITS_ASSUMPTION)
         if request.departure_time:
             assumptions.append(
                 "A departure time was supplied but is not used by the MVP; "
@@ -249,7 +281,8 @@ class AssessmentService:
             evidence=evidence,
             recommendations=risk.recommendations,
             provider_status=provider_status,
-            coverage_note=coverage_note_for(weather_provider),
+            coverage_note=coverage_note_for(weather_provider, retrospective),
+            assessment_mode="retrospective" if retrospective else "forward",
         )
         log_assessment(
             request_id=request_id,

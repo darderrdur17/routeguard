@@ -129,11 +129,6 @@ async def validation_error_handler(
     first_message = str(errors[0].get("msg", "")) if errors else ""
     if first_message.startswith("Value error, "):
         first_message = first_message[len("Value error, ") :]
-    if code == "INVALID_DATE":
-        first_message = (
-            first_message
-            or "The travel date is invalid."
-        ) + " RouteGuard assesses upcoming travel only: providers are forecast- and observation-based, so past dates cannot be evaluated."
     emit(
         "request_rejected",
         request_id=_request_id(request),

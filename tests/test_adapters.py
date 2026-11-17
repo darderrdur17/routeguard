@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import httpx
@@ -267,3 +268,33 @@ def test_retry_limit_on_429(nws_points: dict[str, Any]) -> None:
     assert result.status.error == "HTTPError(status=429)"
     assert attempts["count"] == 1 + 2
     assert nws_points["properties"]["gridId"] == "MTR"
+
+
+def test_awc_retrospective_anchors_metar_window_and_skips_taf() -> None:
+    """A retrospective run requests the assessed day only and never calls TAF."""
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json=[], request=request)
+
+    window = {
+        "start": datetime(2026, 11, 14, 4, 0, tzinfo=timezone.utc),
+        "end": datetime(2026, 11, 15, 4, 0, tzinfo=timezone.utc),
+    }
+
+    async def scenario() -> Any:
+        async with make_client(handler, "AWC") as client:
+            return await AWCAdapter(client, retrospective=True).fetch(
+                ORIGIN, DESTINATION, window
+            )
+
+    result = run(scenario())
+    assert result.status.status == "OK"
+    assert len(calls) == 1
+    assert calls[0].url.path == "/api/data/metar"
+    assert calls[0].url.params["date"] == "2026-11-15T04:00:00Z"
+    assert calls[0].url.params["hours"] == "25"
+    assert calls[0].url.params["ids"] == "KJFK,KSFO"
+    assert result.payloads == []
+    assert "TAF has no historical archive" in result.status.note

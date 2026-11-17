@@ -6,7 +6,7 @@ There is deliberately no numeric score field anywhere in this module: risk
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -21,6 +21,7 @@ from pydantic import (
 )
 
 from app.cities import CityLookupError, CityRegistry
+from app.config import RETROSPECTIVE_COVERAGE_DAYS
 
 ProviderName = Literal["NWS", "AWC", "OPEN_METEO"]
 Severity = Literal["EXTREME", "SEVERE", "MODERATE", "MINOR", "UNKNOWN"]
@@ -37,6 +38,7 @@ SignalType = Literal[
     "AWC_TAF",
     "OPEN_METEO_CURRENT",
     "OPEN_METEO_HOURLY",
+    "OPEN_METEO_RETROSPECTIVE",
 ]
 
 # Only the two terminal no-coverage outcomes (R01/R08) may carry an empty
@@ -100,15 +102,25 @@ class AssessRequest(BaseModel):
 
     @field_validator("date")
     @classmethod
-    def _reject_past_date(cls, value: date, info: ValidationInfo) -> date:
-        """Reject dates before the departure airport's local calendar today."""
+    def _validate_date_bounds(cls, value: date, info: ValidationInfo) -> date:
+        """Bound the travel date on both ends of the supported coverage.
+
+        Dates before the departure airport's local today enter retrospective
+        mode, which the providers can genuinely serve (AWC historical METAR +
+        Open-Meteo recent-past model data) for RETROSPECTIVE_COVERAGE_DAYS.
+        There is deliberately no hard maximum future horizon: beyond the
+        disclosed forecast limits the engine returns INDETERMINATE with a
+        coverage note instead of rejecting the request.
+        """
         origin_value = info.data.get("origin")
         origin = origin_value if isinstance(origin_value, str) else None
         today = _origin_local_today(origin)
-        if value < today:
+        if value < today - timedelta(days=RETROSPECTIVE_COVERAGE_DAYS):
             raise ValueError(
-                f"Travel date {value.isoformat()} is before the departure airport's "
-                f"local today ({today.isoformat()})."
+                f"Travel date {value.isoformat()} is more than "
+                f"{RETROSPECTIVE_COVERAGE_DAYS} days before the departure airport's "
+                f"local today ({today.isoformat()}). Retrospective coverage extends "
+                f"{RETROSPECTIVE_COVERAGE_DAYS} days back; older dates cannot be assessed."
             )
         return value
 
@@ -206,6 +218,10 @@ class Assessment(BaseModel):
     recommendations: list[Recommendation]
     provider_status: list[ProviderStatus]
     coverage_note: str
+    # "forward" classifies the upcoming travel day from forecasts and active
+    # alerts; "retrospective" classifies a recent-past travel day from
+    # historical observations and reanalysis. The decision table is identical.
+    assessment_mode: Literal["forward", "retrospective"] = "forward"
 
     @field_serializer("generated_at", when_used="json")
     def _serialize_generated_at(self, value: datetime, _info: Any) -> str:

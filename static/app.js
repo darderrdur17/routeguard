@@ -201,6 +201,16 @@
     ].join("-");
   }
 
+  function retrospectiveMinDate() {
+    var now = new Date();
+    var past = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+    return [
+      past.getFullYear(),
+      String(past.getMonth() + 1).padStart(2, "0"),
+      String(past.getDate()).padStart(2, "0"),
+    ].join("-");
+  }
+
   function toast(message) {
     dom.toast.textContent = message;
     show(dom.toast, true);
@@ -359,7 +369,12 @@
       [route.destination_state, route.destination_icao, route.destination_timezone].filter(Boolean).join(" · ");
 
     var providerLabel = route.weather_provider === "NWS" ? "NWS + AWC" : "Open-Meteo + AWC";
-    dom.coverageBadge.textContent = (route.coverage_focus || "Global") + " · " + providerLabel;
+    var retrospective =
+      data.assessment_mode === "retrospective" ||
+      String(route.basis || "").indexOf("retrospective") >= 0;
+    dom.coverageBadge.textContent =
+      (retrospective ? "RETROSPECTIVE · " : "") +
+      (route.coverage_focus || "Global") + " · " + providerLabel;
 
     document.getElementById("fact-date").textContent = data.travel_date || "—";
     document.getElementById("fact-window").textContent =
@@ -1293,15 +1308,14 @@
   function submit(payload, isRefresh) {
     if (state.busy) return;
     show(dom.error, false);
-    // Client-side guard: the API rejects past dates by design because the
-    // providers are forecast- and observation-based. Explain that in plain
-    // language instead of a raw validation envelope.
-    if (payload && payload.date && payload.date < todayLocal()) {
-      dom.error.textContent = "INVALID_DATE: Travel dates in the past cannot be assessed. RouteGuard works from live forecasts and observations, so it only evaluates today onwards — pick today or a future date.";
+    // Client-side bound: retrospective assessments reach 7 days back. The API
+    // is the authority; this guard just explains the limit without a round trip.
+    if (payload && payload.date && payload.date < retrospectiveMinDate()) {
+      dom.error.textContent = "INVALID_DATE: Retrospective assessments reach 7 days back only. Pick a date within the last 7 days, today, or a future date.";
       show(dom.error, true);
       if (!state.current) {
         dom.emptyTitle.textContent = "Assessment could not be completed";
-        dom.emptySubtitle.textContent = "Pick today or a future travel date above, then try again.";
+        dom.emptySubtitle.textContent = "Pick a supported travel date above, then try again.";
       }
       syncWorkspace();
       return;
@@ -1460,7 +1474,7 @@
   /* ---------- wiring ---------- */
 
   dom.date.value = tomorrowLocal();
-  dom.date.min = todayLocal();
+  dom.date.min = retrospectiveMinDate();
   renderMode();
   renderViewPills();
 

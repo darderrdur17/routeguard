@@ -61,6 +61,9 @@ class Settings:
             "AWC_TAF": 6,
             "OPEN_METEO_CURRENT": 3,
             "OPEN_METEO_HOURLY": 6,
+            # Retrospective summaries reference an hour inside the assessed
+            # window; 30 h covers the whole-day window relative to its end.
+            "OPEN_METEO_RETROSPECTIVE": 30,
         }
     )
     forecast_horizon_days: int = 7
@@ -69,6 +72,23 @@ class Settings:
 
 
 settings = Settings()
+
+# Retrospective (recent-past) assessment coverage, in days before the departure
+# airport's local today. AWC offers historical METAR retrieval and Open-Meteo
+# exposes recent-past model hours; NWS has no historical alert/forecast archive,
+# so US retrospective runs use the same global pair as international routes.
+RETROSPECTIVE_COVERAGE_DAYS = 7
+
+RETROSPECTIVE_ASSUMPTION = (
+    "Retrospective assessment: signals describe conditions on the travel day "
+    "itself, evaluated with the same deterministic decision table as forward runs."
+)
+RETROSPECTIVE_SOURCE_LIMITS_ASSUMPTION = (
+    "NWS alert and gridpoint history is not available from any documented no-key "
+    "feed and TAF history is not retrievable, so retrospective runs use AWC "
+    "historical METAR observations plus Open-Meteo recent-past model hours "
+    "(reanalysis, not station observations)."
+)
 
 AIR_TRAVEL_ASSUMPTION = (
     "Commercial air travel; airport-level assessment, not a verified flight itinerary."
@@ -96,9 +116,16 @@ WEATHER_NOT_OPERATIONS_ASSUMPTION = (
 )
 
 
-def coverage_note_for(weather_provider: str) -> str:
-    """Disclose the real forward horizons of the providers used in one run."""
-    if weather_provider == "NWS":
+def coverage_note_for(weather_provider: str, retrospective: bool = False) -> str:
+    """Disclose the real horizons of the providers used in one run."""
+    if retrospective:
+        horizons = (
+            "Retrospective run: signals describe the travel day itself. AWC METAR "
+            "observations are station records; Open-Meteo retrospective weather is "
+            "model reanalysis, not a station observation. NWS alert/gridpoint "
+            "history and TAF history are not available from any documented no-key feed."
+        )
+    elif weather_provider == "NWS":
         horizons = (
             "NWS gridpoint forecasts cover approximately 7 days and NWS active alerts "
             "describe alerts active now; TAF forecasts cover approximately 30 hours."

@@ -21,8 +21,9 @@ class AWCAdapter:
 
     name = "AWC"
 
-    def __init__(self, http: HTTPClient) -> None:
+    def __init__(self, http: HTTPClient, retrospective: bool = False) -> None:
         self._http = http
+        self._retrospective = retrospective
 
     async def fetch(
         self,
@@ -30,23 +31,46 @@ class AWCAdapter:
         destination: Airport,
         window: dict[str, datetime],
     ) -> ProviderResult:
-        """Fetch both station products for the route in two outbound calls."""
-        _ = window
-        ids = f"{origin.icao},{destination.icao}"
-        metar_url = f"{settings.awc_metar_url}?ids={ids}&format=json&hours=2"
-        taf_url = f"{settings.awc_taf_url}?ids={ids}&format=json"
+        """Fetch station products for the route.
 
-        outcomes = await asyncio.gather(
-            self._http.get_json(metar_url, accept="application/json", provider=self.name),
-            self._http.get_json(taf_url, accept="application/json", provider=self.name),
-            return_exceptions=True,
-        )
+        Forward runs request current METAR + TAF. Retrospective runs anchor the
+        METAR request at the travel window's UTC end (``date`` + ``hours``), so
+        the response covers the assessed day; TAF is skipped because AWC
+        exposes no historical TAF retrieval.
+        """
+        ids = f"{origin.icao},{destination.icao}"
+        if self._retrospective:
+            anchor = window["end"].strftime("%Y-%m-%dT%H:%M:%SZ")
+            metar_url = (
+                f"{settings.awc_metar_url}?ids={ids}&format=json"
+                f"&date={anchor}&hours=25"
+            )
+            outcomes = [
+                await self._http.get_json(
+                    metar_url, accept="application/json", provider=self.name
+                )
+            ]
+            taf_result = None
+        else:
+            metar_url = f"{settings.awc_metar_url}?ids={ids}&format=json&hours=2"
+            taf_url = f"{settings.awc_taf_url}?ids={ids}&format=json"
+            metar_outcome, taf_result = await asyncio.gather(
+                self._http.get_json(
+                    metar_url, accept="application/json", provider=self.name
+                ),
+                self._http.get_json(
+                    taf_url, accept="application/json", provider=self.name
+                ),
+                return_exceptions=True,
+            )
+            outcomes = [metar_outcome, taf_result]
+
         payloads: list[dict[str, Any]] = []
         notes: list[str] = []
         errors: list[UpstreamError] = []
         latency_ms = 0
 
-        metar_result, taf_result = outcomes
+        metar_result = outcomes[0]
         if isinstance(metar_result, UpstreamError):
             errors.append(metar_result)
         elif isinstance(metar_result, BaseException):
@@ -55,9 +79,17 @@ class AWCAdapter:
             payloads.extend(self._records(metar_result, "AWC_METAR", origin, destination, notes))
             latency_ms += metar_result.latency_ms
             if metar_result.status_code == 204:
-                notes.append("204 No Content - no current METAR.")
+                notes.append(
+                    "204 No Content - no METAR coverage for the assessed window."
+                    if self._retrospective
+                    else "204 No Content - no current METAR."
+                )
 
-        if isinstance(taf_result, UpstreamError):
+        if self._retrospective:
+            notes.append(
+                "TAF has no historical archive; skipped for retrospective assessment."
+            )
+        elif isinstance(taf_result, UpstreamError):
             errors.append(taf_result)
         elif isinstance(taf_result, BaseException):
             errors.append(UpstreamError(f"TransportError({type(taf_result).__name__})"))

@@ -147,3 +147,21 @@ User browser reports (Safari, 1920px): a blank workspace despite a completed ass
 | Past dates explained in plain language | Pass | Client guard blocks the request with "*INVALID_DATE: Travel dates in the past cannot be assessed. RouteGuard works from live forecasts and observations…*". API-side, `INVALID_DATE` now returns the human-readable bound ("Travel date 2026-11-14 is before the departure airport's local today (2026-11-16). RouteGuard assesses upcoming travel only: providers are forecast- and observation-based, so past dates cannot be evaluated."). Raw `body.date` field paths moved to the console, out of the visible message. |
 | Mode switch self-documented | Pass | Overview tooltip "Plain-language summary for trip planning"; Analyst tooltip "Raw excerpts, reliability scores and technical detail"; group `aria-label` describes both modes. |
 | Regression coverage | Pass | `python3 -m pytest -q` → **112 passed** (6 new tests: workspace invariant, render containment, client past-date guard, error-message clarity, mode-switch tooltips, overflow clip). |
+
+---
+
+## Addendum — retrospective mode: past-date assessments (17 Nov 2026)
+
+The user asked to "proceed follow up" on genuine historical support. Provider research executed live: AWC METAR supports an anchored `date` + `hours` historical window (verified: 24 real KSFO observations returned for a date 2 days back); Open-Meteo's no-key forecast endpoint returns `past_days=7` hourly model data; NWS publishes no historical alert/gridpoint archive and AWC exposes no historical TAF. Design: a past date switches the run to AWC historical METAR + Open-Meteo recent-past model hours, classified by the unchanged decision table.
+
+| Check | Status | Executed evidence |
+|---|---|---|
+| Provider research | Pass | Live curls: AWC `date=...T00:00:00Z&hours=24` → 24 obs covering exactly the anchored day; Open-Meteo `past_days=7` hourly weather codes/temperature/wind/precipitation present for dates 2-3 days back. |
+| 7-day retrospective window | Pass | `AssessRequest` accepts dates ≥ origin-local today − 7; older dates → 422 `INVALID_DATE` "Retrospective coverage extends 7 days back". |
+| Routing | Pass | New `tests/test_service.py`: retrospective run constructs Open-Meteo/AWC retrospective adapters (never NWS) and marks `assessment_mode="retrospective"`, basis `airport-level retrospective`; forward run keeps NWS + AWC. |
+| Historical METAR | Pass | AWC retrospective anchors `date=<window end UTC>&hours=25` and skips TAF with an explanatory note (adapter test with MockTransport). |
+| Recent-past model hours | Pass | Open-Meteo retrospective summarises the most severe in-window hour (shared WMO/wind severity rule) plus peak wind/precipitation per airport; hours outside the window are ignored. |
+| Freshness semantics | Pass | In retrospective mode freshness is judged relative to the assessed window: in-day evidence is FRESH (unit tests: METAR IFR + retrospective model record), the same payloads under the forward normalizer are STALE/old. Reliability stays honest: AWC METAR HIGH, Open-Meteo retrospective MEDIUM (model reanalysis). |
+| Live end-to-end | Pass | Local server, JFK→SFO on 2026-11-14 (2 days back): both providers OK with 4 evidence items (all FRESH), R07_CLEAR / HIGH confidence for a genuinely calm day, coverage note discloses reanalysis + missing NWS/TAF history. Forward run unchanged (NWS OK + AWC OK). |
+| UI | Pass | Date picker min = local today − 7 with hint "Today onwards — or up to 7 days back"; client guard only trips beyond 7 days; coverage badge prefixes `RETROSPECTIVE`; journey basis shows `airport-level retrospective`. Browser run: no JS errors. |
+| Regression coverage | Pass | `python3 -m pytest -q` → **120 passed** (8 new: 2 API bounds, 3 normalization, 1 AWC adapter, 2 service routing; frontend tests updated for the new bounds). |

@@ -14,6 +14,17 @@ airport's local calendar date. Because no departure time is used, the assessment
 has whole-day precision, and destination evidence is evaluated against the same
 UTC window (arrival-local date is not modelled).
 
+**Retrospective mode:** travel dates up to 7 days before the departure airport's
+local today are supported. A past date switches the run to AWC historical METAR
+observations (window anchored at the travel day) plus Open-Meteo recent-past
+model hours, and the same deterministic decision table classifies the day —
+`assessment_mode: "retrospective"`, basis `airport-level retrospective`, a
+`RETROSPECTIVE` badge in the UI and a coverage note stating that NWS alert
+history, TAF history and station-grade precision are unavailable. Open-Meteo
+retrospective data is model reanalysis, not a station observation, and carries
+MEDIUM reliability. Freshness for a retrospective run is judged relative to the
+assessed day, so evidence generated during that day is not penalised as stale.
+
 **Current focus and global extension:** the original brief focused on the United
 States. That remains the default: 48 curated US airports assessed with NWS + AWC.
 The prototype now also covers 27 curated airports in 25 other countries/regions
@@ -108,7 +119,7 @@ URL resolution, favicon/touch-icon references, robots policy, single-URL sitemap
 1200×630 Open Graph image. `tests/test_frontend.py` checks the V29 shell contract,
 real layer controls, progressive disclosure, honest skeletons, keyless MapLibre
 enhancement with SVG fallback, the no-`innerHTML` rule and accessibility tokens.
-Current result: **112 passed**.
+Current result: **120 passed**.
 
 ### Robustness hardening (post-audit)
 
@@ -224,7 +235,7 @@ the shipped decision table now agree.
 9. Caching is limited to provider `Cache-Control`; no production cache, auth or monitoring.
 10. DST edge cases use Python's default `zoneinfo` fold behaviour at ambiguous/nonexistent local midnight; precision is reduced and disclosed.
 11. City coverage is 75 curated airports (48 US + 27 international); unmapped input returns `UNMAPPED_CITY` rather than a guess. UI labels such as `Salt Lake City (SLC)` and ICAO codes are accepted by the API.
-12. Travel dates must be the departure airport's local today or later; an earlier date is rejected as `INVALID_DATE` with HTTP 422. There is no hard maximum horizon: beyond the disclosed forecast windows the engine returns `INDETERMINATE` with a coverage note instead of rejecting the request.
+12. Travel dates must be within the supported coverage: up to 7 days before the departure airport's local today (retrospective) or any future date. Older dates are rejected as `INVALID_DATE` with HTTP 422. There is no hard maximum horizon: beyond the disclosed forecast windows the engine returns `INDETERMINATE` with a coverage note instead of rejecting the request.
 13. Outside the United States there is no integrated official national alert feed. Open-Meteo current/hourly weather and AWC aviation weather are global proxies, not operational-status data; the coverage note states this explicitly.
 14. The schematic map uses real coordinates but no country polygons; it is a coordinate projection, not a geographic basemap.
 

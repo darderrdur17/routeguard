@@ -162,12 +162,20 @@ def test_render_failure_is_contained_not_silent() -> None:
 
 
 def test_past_dates_are_guarded_in_the_client() -> None:
-    """The form blocks past dates before the API and explains why in plain language."""
-    assert "dom.date.min = todayLocal();" in APP
+    """The picker spans the retrospective window and the guard explains it."""
+    assert "dom.date.min = retrospectiveMinDate();" in APP
     assert "function todayLocal()" in APP
-    assert "payload.date < todayLocal()" in APP
-    assert "Travel dates in the past cannot be assessed" in APP
-    assert 'Today onwards' in INDEX
+    assert "function retrospectiveMinDate()" in APP
+    assert "payload.date < retrospectiveMinDate()" in APP
+    assert "Retrospective assessments reach 7 days back only" in APP
+    assert "Today onwards — or up to 7 days back" in INDEX
+
+
+def test_retrospective_assessments_are_labelled_in_the_ui() -> None:
+    """A retrospective run is marked in the coverage badge and journey basis."""
+    assert 'data.assessment_mode === "retrospective"' in APP
+    assert "RETROSPECTIVE · " in APP
+    assert 'String(route.basis || "").indexOf("retrospective")' in APP
 
 
 def test_validation_field_paths_no_longer_clutter_the_visible_error() -> None:

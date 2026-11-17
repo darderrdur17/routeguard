@@ -121,3 +121,77 @@ def test_weather_provider_selected_by_country() -> None:
     assert weather_provider_name(registry.resolve("SIN")) == "OPEN_METEO"
     assert weather_provider_name(registry.resolve("LHR")) == "OPEN_METEO"
     assert weather_provider_name(registry.resolve("Toronto (YYZ)")) == "OPEN_METEO"
+
+
+def test_retrospective_open_meteo_record_is_fresh_relative_to_assessed_day() -> None:
+    """Retrospective freshness is judged against the travel day, not the clock."""
+    env = envelope(
+        "OPEN_METEO_RETROSPECTIVE",
+        {
+            "time": "2026-11-16T13:00Z",
+            "weather_code": 95,
+            "wind_speed_10m": 42.0,
+            "precipitation": 4.2,
+            "temperature_2m": 18.1,
+            "provider": "Open-Meteo",
+        },
+    )
+    long_after = datetime(2026, 11, 25, 8, 0, tzinfo=timezone.utc)
+    result = Normalizer(now=long_after, retrospective=True).normalize([env], WINDOW)
+    assert len(result.evidence) == 1
+    item = result.evidence[0]
+    assert item.signal_type == "OPEN_METEO_RETROSPECTIVE"
+    assert item.severity == "SEVERE"
+    # Model reanalysis is MEDIUM reliability even though the hour is fresh
+    # relative to the assessed day.
+    assert item.reliability == "MEDIUM"
+    assert item.freshness == "FRESH"
+    assert item.temporal_overlap == "PARTIAL"
+    # The same payload under the forward normalizer is nine days old -> STALE.
+    forward = Normalizer(now=long_after).normalize([env], WINDOW)
+    assert forward.evidence[0].freshness == "STALE"
+
+
+def test_retrospective_outside_window_hours_are_dropped() -> None:
+    """A retrospective summary hour outside the assessed window is not fresh."""
+    env = envelope(
+        "OPEN_METEO_RETROSPECTIVE",
+        {
+            "time": "2026-11-18T13:00Z",
+            "weather_code": 95,
+            "wind_speed_10m": 42.0,
+            "provider": "Open-Meteo",
+        },
+    )
+    result = Normalizer(retrospective=True).normalize([env], WINDOW)
+    assert len(result.evidence) == 1
+    assert result.evidence[0].freshness == "STALE"
+
+
+def test_retrospective_metar_is_trustworthy_for_the_assessed_day() -> None:
+    """Historical METARs behave like forward observations in retrospective mode."""
+    metar_env = {
+        "_provider": "AWC",
+        "_signal": "AWC_METAR",
+        "_source_url": "https://aviationweather.gov/api/data/metar?ids=KSFO",
+        "_role": "destination",
+        "record": {
+            "icaoId": "KSFO",
+            "reportTime": "2026-11-16T18:00:00.000Z",
+            "fltCat": "IFR",
+            "visib": "2",
+            "wspd": 12,
+            "wxString": "-RA",
+        },
+    }
+    long_after = datetime(2026, 11, 25, 8, 0, tzinfo=timezone.utc)
+    result = Normalizer(
+        now=long_after, locations={"destination": ("San Francisco (SFO)", 37.62, -122.38)},
+        retrospective=True,
+    ).normalize([metar_env], WINDOW)
+    assert len(result.evidence) == 1
+    item = result.evidence[0]
+    assert item.severity == "MODERATE"
+    assert item.freshness == "FRESH"
+    assert item.reliability == "HIGH"
+    assert item.geography == "EXACT"
