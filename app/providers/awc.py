@@ -149,8 +149,11 @@ class AWCAdapter:
                 notes.append(f"Malformed AWC {signal} record skipped.")
                 continue
             icao = str(record.get("icaoId", "")).upper()
-            role = "origin" if icao == origin.icao else "destination"
-            if icao not in {origin.icao, destination.icao}:
+            if icao == origin.icao:
+                role = "origin"
+            elif icao == destination.icao:
+                role = "destination"
+            else:
                 role = "unknown"
             payloads.append(
                 {

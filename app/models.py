@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     BaseModel,
@@ -22,6 +21,7 @@ from pydantic import (
 
 from app.cities import CityLookupError, CityRegistry
 from app.config import RETROSPECTIVE_COVERAGE_DAYS
+from app.timeutils import airport_local_today
 
 ProviderName = Literal["NWS", "AWC", "OPEN_METEO"]
 Severity = Literal["EXTREME", "SEVERE", "MODERATE", "MINOR", "UNKNOWN"]
@@ -59,21 +59,17 @@ def _origin_local_today(origin: str | None) -> date:
     """Return the departure airport's local calendar date at validation time.
 
     The origin is resolved here (before ``AssessmentService.assess``) so the
-    date bound uses the airport's IANA timezone. If the origin is unmapped or
-    its zone is unavailable, a conservative UTC "today" is used; the service
-    still reports ``UNMAPPED_CITY`` for unmapped queries.
+    date bound uses the airport's IANA timezone. If the origin is unmapped, a
+    conservative UTC "today" is used; the service still reports
+    ``UNMAPPED_CITY`` for unmapped queries.
     """
-    instant = datetime.now(timezone.utc)
     if not origin:
-        return instant.date()
+        return datetime.now(timezone.utc).date()
     try:
         airport = _ORIGIN_REGISTRY.resolve(origin)
     except CityLookupError:
-        return instant.date()
-    try:
-        return instant.astimezone(ZoneInfo(airport.timezone)).date()
-    except ZoneInfoNotFoundError:
-        return instant.date()
+        return datetime.now(timezone.utc).date()
+    return airport_local_today(airport.timezone)
 
 
 def _utc_iso(value: datetime | None) -> str | None:

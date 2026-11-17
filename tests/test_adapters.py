@@ -298,3 +298,24 @@ def test_awc_retrospective_anchors_metar_window_and_skips_taf() -> None:
     assert calls[0].url.params["ids"] == "KJFK,KSFO"
     assert result.payloads == []
     assert "TAF has no historical archive" in result.status.note
+
+
+def test_upstream_redirect_is_a_distinct_visible_failure() -> None:
+    """A drifted 3xx endpoint surfaces RedirectDisallowed, not MalformedJSON."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            302,
+            headers={"location": "https://api.weather.gov/elsewhere"},
+            request=request,
+        )
+
+    async def scenario() -> Any:
+        async with make_client(handler, "NWS", max_retries=0) as client:
+            return await NWSAdapter(client).fetch(ORIGIN, DESTINATION, WINDOW)
+
+    result = run(scenario())
+    assert result.status.status == "FAILED"
+    assert result.status.error == "RedirectDisallowed(302)"
+    assert result.status.http_status == 302
+    assert result.payloads == []

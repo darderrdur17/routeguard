@@ -163,9 +163,10 @@ def test_render_failure_is_contained_not_silent() -> None:
 
 def test_past_dates_are_guarded_in_the_client() -> None:
     """The picker spans the retrospective window and the guard explains it."""
-    assert "dom.date.min = retrospectiveMinDate();" in APP
+    assert "dom.date.min = originAwareMinDate();" in APP
     assert "function todayLocal()" in APP
     assert "function retrospectiveMinDate()" in APP
+    assert "function originAwareMinDate()" in APP
     assert "payload.date < retrospectiveMinDate()" in APP
     assert "Retrospective assessments reach 7 days back only" in APP
     assert "Today onwards — or up to 7 days back" in INDEX
@@ -227,3 +228,17 @@ def test_history_view_visibility_rules_and_renderers_exist() -> None:
     assert '"no data"' in APP
     # History rendering stays on the safe-DOM path: no innerHTML anywhere.
     assert ".innerHTML" not in APP
+
+
+def test_glossary_terms_surface_their_definitions() -> None:
+    """Glossary buttons are wired to the shared toast, not dead controls."""
+    assert 'querySelectorAll(".glossary-term")' in APP
+    assert " definition: " in APP
+    assert "function toast(" in APP
+
+
+def test_show_on_map_closes_the_drawer_before_focusing_the_map() -> None:
+    """The map is revealed (drawer + overlay closed) before it is scrolled to."""
+    drawer_block = APP[APP.find('dom.drawerMap.addEventListener'):APP.find("dom.paletteOpen.addEventListener")]
+    assert "closeDrawer();" in drawer_block
+    assert drawer_block.index("closeDrawer();") < drawer_block.index("selectEvidence(")

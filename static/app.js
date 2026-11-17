@@ -16,6 +16,7 @@
     filter: "all",
     highlighted: null,
     selectedEvidenceId: null,
+    drawerEvidenceId: null,
     activeAirport: null,
     previousClassification: null,
     lastPayload: null,
@@ -217,14 +218,53 @@
     ].join("-");
   }
 
-  function retrospectiveMinDate() {
-    var now = new Date();
-    var past = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+  function isoMinusDays(dateValue, days) {
+    var past = new Date(
+      dateValue.getFullYear(),
+      dateValue.getMonth(),
+      dateValue.getDate() - days
+    );
     return [
       past.getFullYear(),
       String(past.getMonth() + 1).padStart(2, "0"),
       String(past.getDate()).padStart(2, "0"),
     ].join("-");
+  }
+
+  function retrospectiveMinDate() {
+    var now = new Date();
+    return isoMinusDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), 7);
+  }
+
+  // The backend bounds retrospective dates to the origin airport's local
+  // today, not the browser's. When a route is known, compute today in the
+  // origin's IANA timezone and subtract 7 days there; otherwise fall back to
+  // the browser-local retrospectiveMinDate().
+  function originAwareMinDate() {
+    var route = state.current && state.current.route ? state.current.route : null;
+    var timeZone = route ? route.origin_timezone || null : null;
+    var now = new Date();
+    if (timeZone && window.Intl && Intl.DateTimeFormat) {
+      try {
+        var parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(now);
+        var values = {};
+        parts.forEach(function (part) { values[part.type] = part.value; });
+        var originToday = new Date(
+          Number(values.year),
+          Number(values.month) - 1,
+          Number(values.day)
+        );
+        return isoMinusDays(originToday, 7);
+      } catch (zoneError) {
+        if (window.console && console.warn) console.warn("RouteGuard origin-zone date bound failed:", zoneError);
+      }
+    }
+    return retrospectiveMinDate();
   }
 
   function toast(message) {
@@ -1602,6 +1642,8 @@
     renderContext(data);
     renderViewPills();
     renderMap(data);
+    // The retrospective bound tracks the assessed route's origin timezone.
+    dom.date.min = originAwareMinDate();
   }
 
   /* Single source of truth for workspace visibility. The invariant: results
@@ -1797,7 +1839,7 @@
   /* ---------- wiring ---------- */
 
   dom.date.value = tomorrowLocal();
-  dom.date.min = retrospectiveMinDate();
+  dom.date.min = originAwareMinDate();
   renderMode();
   renderViewPills();
 
@@ -1873,9 +1915,23 @@
   dom.drawerOverlay.addEventListener("click", closeDrawer);
   dom.drawerMap.addEventListener("click", function () {
     if (state.drawerEvidenceId) {
-      selectEvidence(state.drawerEvidenceId, { focusMap: true, openPopup: true });
+      // Capture the id first: closeDrawer clears state.drawerEvidenceId.
+      var evidenceId = state.drawerEvidenceId;
+      // Reveal the map before scrolling to it — an open drawer would cover it.
+      closeDrawer();
+      selectEvidence(evidenceId, { focusMap: true, openPopup: true });
       dom.mapStage.scrollIntoView({ block: "center", behavior: reducedMotion() ? "auto" : "smooth" });
     }
+  });
+
+  // Glossary chips are real buttons: surface their aria-label definitions
+  // through the shared toast instead of leaving dead controls.
+  Array.prototype.forEach.call(document.querySelectorAll(".glossary-term"), function (button) {
+    button.addEventListener("click", function () {
+      var label = button.getAttribute("aria-label") || "";
+      var marker = label.indexOf(" definition: ");
+      toast(marker >= 0 ? label.slice(marker + " definition: ".length) : label);
+    });
   });
 
   dom.paletteOpen.addEventListener("click", openPalette);

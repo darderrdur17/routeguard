@@ -132,6 +132,23 @@ class HTTPClient:
                 )
                 return HTTPResult(204, None, str(response.request.url), latency_ms)
 
+            # Redirects are disallowed (follow_redirects=False); without this
+            # branch a drifted 3xx endpoint would fall through to JSON parsing
+            # and surface as a generic MalformedJSON instead of a distinct,
+            # visible endpoint-drift failure.
+            if 300 <= status_code < 400:
+                log_provider_call(
+                    request_id=self.request_id,
+                    provider=log_provider,
+                    url=url,
+                    status="error",
+                    http_status=status_code,
+                    latency_ms=latency_ms,
+                )
+                raise UpstreamError(
+                    f"RedirectDisallowed({status_code})", status_code
+                )
+
             if status_code == 429 or 500 <= status_code < 600:
                 if attempt < self.max_retries:
                     delay = self.backoff_base_s * (2**attempt) * (1.0 + random.random())

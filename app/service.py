@@ -36,6 +36,7 @@ from app.providers.base import ProviderAdapter, ProviderResult, build_status
 from app.providers.nws import NWSAdapter
 from app.providers.open_meteo import OpenMeteoAdapter
 from app.risk import RiskResult, classify
+from app.timeutils import airport_local_today
 
 
 class RouteInputError(Exception):
@@ -60,11 +61,7 @@ def weather_provider_name(origin: Airport) -> str:
 
 def origin_local_today(airport: Airport) -> date:
     """Return the airport's local calendar date right now."""
-    instant = datetime.now(timezone.utc)
-    try:
-        return instant.astimezone(ZoneInfo(airport.timezone)).date()
-    except ZoneInfoNotFoundError:
-        return instant.date()
+    return airport_local_today(airport.timezone)
 
 
 class AssessmentService:
